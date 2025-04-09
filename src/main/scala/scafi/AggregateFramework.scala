@@ -18,22 +18,29 @@ object AggregateFramework extends App:
       case Call(a, _, _) => a
 
   trait Aggregate[A]:
-    def flatMap[B](f: A => Aggregate[B]): Aggregate[B] =
-      case Next(t1, t2) =>
-        val t1o = this.eval(t1.asInstanceOf[Tree[A]])
-        Next(t1o, f(t1o.top).eval(t2))
-      case Empty() =>
-        val t1o = this.eval(Empty[A]())
-        Next(t1o, f(t1o.top).eval(Empty()))
-    def map[B](f: A => B): Aggregate[B] = flatMap(a => compute(f(a)))
-    def eval(input: Tree[A]): Tree[A]
+    given Set[Device] = Set()
+    def flatMap[B](f: A => Aggregate[B]): Aggregate[B] = Aggregate:
+        case (Next(t1, t2), domain) =>
+          val t1o = this.eval(t1.asInstanceOf[Tree[A]])(using domain)
+          Next(t1o, f(t1o.top).eval(t2)(using domain))
+        case (Empty(), domain) =>
+          val t1o = this.eval(Empty[A]())(using domain)
+          Next(t1o, f(t1o.top).eval(Empty())(using domain))
+    def map[B](f: A => B): Aggregate[B] = flatMap(a => f(a))
+    def eval(input: Tree[A])(using domain: Set[Device]): Tree[A]
 
   object Aggregate:
-    def compute[A](a: A): Aggregate[A] =
-      _ => Val(a)
-    def rep[A](a: A)(f: A => Aggregate[A]): Aggregate[A] =
-      case Empty() => Rep(a, Empty())
-      case Rep(x, nest) => val n = f(x).eval(nest); Rep(n.top, n)
+    opaque type Device = Int
+    val selfDevice: Device = 0
+    def apply[A](round: (Tree[A], Set[Device]) => Tree[A]): Aggregate[A] = new Aggregate[A]:
+      override def eval(input: Tree[A])(using domain: Set[Device]): Tree[A] = round(input, domain)
+
+    def compute[A](a: A): Aggregate[A] = Aggregate:
+      (_, _) => Val(a)
+    def rep[A](a: A)(f: A => Aggregate[A]): Aggregate[A] = Aggregate:
+      case (Empty(), _) => Rep(a, Empty())
+      case (_, domain) if !domain.contains(selfDevice) => Rep(a, Empty())
+      case (Rep(x, nest), domain) => val n = f(x).eval(nest)(using domain); Rep(n.top, n)
     def aggregateCall[A](f: Aggregate[() => A]): Aggregate[A] =
       for
         fun <- f

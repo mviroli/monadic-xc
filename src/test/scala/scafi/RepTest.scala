@@ -4,11 +4,13 @@ import org.scalatest.matchers.should.Matchers.*
 import AggregateFramework.*
 
 class RepTest extends org.scalatest.funsuite.AnyFunSuite:
+  given dom: Set[Device] = Set(selfDevice)
 
   test("Constant rep"):
     val k = constant(5)
     k.eval(Empty()) shouldBe Rep(5, Empty())
     k.eval(Rep(5, Empty())) shouldBe Rep(5, Val(5))
+    k.eval(Rep(5, Empty()))(using Set()) shouldBe Rep(5, Empty())
     k.eval(Rep(5, Val(5))) shouldBe Rep(5, Val(5))
 
   test("Constant counter"):
