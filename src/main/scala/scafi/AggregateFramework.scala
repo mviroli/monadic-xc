@@ -65,23 +65,20 @@ object AggregateFramework extends App:
 
     def hood[A](initial: A, op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] = ???
 
-    def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] = ???
-
     def nbr_range: Aggregate[Double] = ???
-
-    def bind[A, B, C](s1: Aggregate[A], s2: Aggregate[B])(f: (A, B) => C): Aggregate[C] = ???
-
-    def bind[A, B, C, D](s1: Aggregate[A], s2: Aggregate[B], s3: Aggregate[C])(f: (A, B, C) => D): Aggregate[D] = ???
 
     extension [A](a: Aggregate[A]) def >>[B](f: A => Aggregate[B]): Aggregate[B] = ???
 
+    def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+      for
+        cond <- b
+        t <- th
+        e <- el
+      yield if cond then t else e
+
     def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
       aggregateCall:
-        for
-          b <- cond
-          f1 <- compute(() => th)
-          f2 <- compute(() => el)
-        yield if b then f1 else f2
+        mux(cond)(() => th)(() => el)
 
   object Showcase:
 
@@ -127,7 +124,4 @@ object AggregateFramework extends App:
             rep(0)(_ + 1).flatMap: c3 =>
               c + c2 + c3
 
-    def counterWithNesting4(from: Int): Aggregate[Int] =
-      rep(from): n =>
-        bind(rep(1)(identity), rep(n)(identity), rep(0)(_ + 1)): (c, c2, c3) =>
-          c + c2 + c3
+
