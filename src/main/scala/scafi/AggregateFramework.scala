@@ -5,18 +5,18 @@ object AggregateFramework extends App:
   export Lib.*
   export Tree.*
 
-  enum Tree[+A]:
+  enum Tree[A]:
     case Rep(res: A, nest: Tree[A])
     case Val(res: A)
-    case Next(left: Tree[Any], right: Tree[A])
-    case Call(fun: () => Any, nest: Tree[A])
+    case Next[A, B](res: A, left: Tree[B], right: Tree[A]) extends Tree[A]
+    case Call(fun: () => Any, outer: Tree[() => Aggregate[A]], nest: Tree[A])
     case Empty()
 
     def top: A = this match
       case Rep(a, _) => a
       case Val(a) => a
-      case Next(_, r) => r.top
-      case Call(_, n) => n.top
+      case Next(a, _, _) => a
+      case Call(_, _, n) => n.top
 
   object Tree:
     def functionEquality(f1: Any, f2: Any): Boolean = f2 == f2
@@ -25,12 +25,14 @@ object AggregateFramework extends App:
     given Set[Device] = Set()
 
     def flatMap[B](f: A => Aggregate[B]): Aggregate[B] = Aggregate:
-      case (Next(t1, t2), domain) =>
+      case (Next(_, t1, t2), domain) =>
         val t1o = this.eval(t1.asInstanceOf[Tree[A]])(using domain)
-        Next(t1o, f(t1o.top).eval(t2)(using domain))
+        val t2o = f(t1o.top).eval(t2)(using domain)
+        Next(t2o.top, t1o, t2o)
       case (Empty(), domain) =>
         val t1o = this.eval(Empty[A]())(using domain)
-        Next(t1o, f(t1o.top).eval(Empty())(using domain))
+        val t2o = f(t1o.top).eval(Empty())(using domain)
+        Next(t2o.top, t1o, t2o)
 
     def map[B](f: A => B): Aggregate[B] = flatMap(a => f(a))
 
@@ -52,11 +54,15 @@ object AggregateFramework extends App:
       case (Rep(x, nest), domain) => val n = f(x).eval(nest)(using domain); Rep(n.top, n)
 
     def aggregateCall[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] =
-      val fun = f.eval(Empty())(using Set()).top
       Aggregate:
-        case (Empty(), domain) => Call(fun, fun().eval(Empty())(using domain))
-        case (Call(g, nest), domain) if g == fun => Call(fun, fun().eval(nest)(using domain))
-        case (Call(_, nest), domain) => Call(fun, fun().eval(Empty())(using domain - selfDevice))
+        case (Empty(), domain) =>
+          val funTree = f.eval(Empty())(using domain)
+          Call(funTree.top, funTree, funTree.top().eval(Empty())(using domain))
+        case (Call(g, outer, nest), domain) =>
+          val funTree = f.eval(outer.asInstanceOf[Tree[() => Aggregate[A]]])(using domain)
+          if g == funTree.top
+            then Call(g, funTree, funTree.top().eval(nest)(using domain))
+            else Call(funTree.top, funTree, funTree.top().eval(Empty())(using domain - selfDevice))
 
     given [A]: Conversion[A, Aggregate[A]] = a => compute(a)
 
@@ -78,7 +84,7 @@ object AggregateFramework extends App:
 
     def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
       aggregateCall:
-        mux(cond)(() => th)(() => el)
+        mux(cond)(compute(() => th))(compute(() => el))
 
   object Showcase:
 
