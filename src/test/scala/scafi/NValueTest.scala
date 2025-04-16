@@ -34,11 +34,12 @@ class NValueTest extends org.scalatest.funsuite.AnyFunSuite:
     v shouldBe NValue(6, Map(0 -> 11, 1 -> 12))
 
   test("composition"):
-    val v: NValue[Int] = for
+    val v: NValue[String] = for
       x <- NValue(5, Map(0 -> 10, 1 -> 11))
       y <- NValue(6, Map(0 -> 100, 2 -> 200))
-    yield x + y
-    v shouldBe NValue(11, Map(0 -> 110, 1 -> 17, 2 -> 205))
+      z <- NValue("def", Map(0 -> "a"))
+    yield x + y + z
+    v shouldBe NValue("11def", Map(0 -> "110a", 1 -> "17def", 2 -> "205def"))
 
   test("composition explained"):
     val v: NValue[Int] =
