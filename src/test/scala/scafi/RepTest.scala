@@ -77,22 +77,22 @@ class RepTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("Call to a non-aggregate program"):
     val f = () => compute(1)
-    aggregateCall(f).repeat().take(2) shouldBe Seq(
+    call(f).repeat().take(2) shouldBe Seq(
       Call(Val(f), Val(1)),
       Call(Val(f), Val(1)))
 
 
   test("Call to an aggregate program"):
     val f = () => counter(0)
-    aggregateCall(f).repeat().take(2) shouldBe Seq(
+    call(f).repeat().take(2) shouldBe Seq(
       Call(Val(f), Rep(0, Empty())),
       Call(Val(f), Rep(1, Val(1))))
 
   test("Rep restarts in case of a synthetic function change"):
     val f1 = () => counter(0)
     val f2 = () => counter(0)
-    val c1 = aggregateCall(f1)
-    val c2 = aggregateCall(f2)
+    val c1 = call(f1)
+    val c2 = call(f2)
     c1.evalOne(Call(Val(f1), Rep(0, Empty()))) shouldBe Call(Val(f1), Rep(1, Val(1)))
     c2.evalOne(Call(Val(f1), Rep(0, Empty()))) shouldBe Call(Val(f2), Rep(0, Empty()))
 

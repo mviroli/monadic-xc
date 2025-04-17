@@ -8,7 +8,7 @@ object AggregateFramework:
   enum Tree[A]:
     case Rep(res: A, nest: Tree[A])
     case Val(res: A)
-    case Next[A, B](left: Tree[B], right: Tree[A]) extends Tree[A]
+    case Next[A](left: Tree[Any], right: Tree[A]) extends Tree[A]
     case Call(fun: Tree[() => Aggregate[A]], nest: Tree[A])
     case Empty()
 
@@ -18,53 +18,38 @@ object AggregateFramework:
       case Next(_, r) => r.top
       case Call( _, n) => n.top
 
-  object Tree:
-    def functionEquality(f1: Any, f2: Any): Boolean = f2 == f2
+  opaque type Device = Int
+  val selfDevice: Device = 0
+  type Domain = Set[Device]
 
   trait Aggregate[A]:
-    given Set[Device] = Set()
-
-    def flatMap[B](f: A => Aggregate[B]): Aggregate[B] = Aggregate:
-      case (Next(t1, t2), domain) =>
-        val t1o = this.eval(t1.asInstanceOf[Tree[A]])(using domain)
-        val t2o = f(t1o.top).eval(t2)(using domain)
-        Next(t1o, t2o)
-      case (Empty(), domain) =>
-        val t1o = this.eval(Empty[A]())(using domain)
-        val t2o = f(t1o.top).eval(Empty())(using domain)
-        Next(t1o, t2o)
-
-    def map[B](f: A => B): Aggregate[B] = flatMap(a => f(a))
-
-    def eval(input: Tree[A])(using domain: Set[Device]): Tree[A]
+    def eval(t: Tree[A])(using d: Domain): Tree[A]
 
   object Aggregate:
-    opaque type Device = Int
-    val selfDevice: Device = 0
 
-    def apply[A](round: (Tree[A], Set[Device]) => Tree[A]): Aggregate[A] = new Aggregate[A]:
-      override def eval(input: Tree[A])(using domain: Set[Device]): Tree[A] = round(input, domain)
+    private def aggregate[A](onEmpty: Tree[A])(round: Domain ?=> Tree[A] => Tree[A]): Aggregate[A] = new Aggregate[A]:
+      override def eval(input: Tree[A])(using d: Domain): Tree[A] =
+        round(if input == Empty() then onEmpty else input)
 
-    def compute[A](a: A): Aggregate[A] = Aggregate:
-      (_, _) => Val(a)
+    extension [A](ag: Aggregate[A])
+      def flatMap[B](f: A => Aggregate[B]): Aggregate[B] = aggregate(Next(Empty(), Empty())):
+        case Next(t1, t2) =>
+          val t1o = ag.eval(t1.asInstanceOf[Tree[A]])
+          Next(t1o.asInstanceOf[Tree[Any]], f(t1o.top).eval(t2))
+      def map[B](f: A => B): Aggregate[B] = flatMap(a => compute(f(a)))
 
-    def rep[A](a: A)(f: A => Aggregate[A]): Aggregate[A] = Aggregate:
-      case (Empty(), _) => Rep(a, Empty())
-      case (_, domain) if !domain.contains(selfDevice) => Rep(a, Empty())
-      case (Rep(x, nest), domain) => val n = f(x).eval(nest)(using domain); Rep(n.top, n)
+    def rep[A](a: A)(f: A => Aggregate[A]): Aggregate[A] = aggregate(Empty()):
+      case Rep(x, nest) if summon[Domain].contains(selfDevice) => val n = f(x).eval(nest); Rep(n.top, n)
+      case _ => Rep(a, Empty())
 
-    def aggregateCall[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] =
-      Aggregate:
-        case (Empty(), domain) =>
-          val funTree = f.eval(Empty())(using domain)
-          Call(funTree, funTree.top().eval(Empty())(using domain))
-        case (Call(fun, nest), domain) =>
-          val funOut = f.eval(fun)(using domain)
-          if fun.top == funOut.top
-            then Call(funOut, funOut.top().eval(nest)(using domain))
-            else Call(funOut, funOut.top().eval(Empty())(using domain - selfDevice))
+    def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = aggregate(Call(Empty(), Empty())):
+        case Call(fun, nest) =>
+          val funOut = f.eval(fun)
+          if fun != Empty() && fun.top == funOut.top
+            then Call(funOut, funOut.top().eval(nest))
+            else Call(funOut, funOut.top().eval(Empty())(using summon[Domain] - selfDevice))
 
-    given [A]: Conversion[A, Aggregate[A]] = a => compute(a)
+    given compute[A]: Conversion[A, Aggregate[A]] = a => aggregate(Empty())(_ => Val(a))
 
   object AdditionalConstructs:
     def nbr[A](a: Aggregate[A]): Aggregate[A] = ???
@@ -83,22 +68,24 @@ object AggregateFramework:
       yield if cond then t else e
 
     def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
-      aggregateCall:
+      call:
         mux(cond)(compute(() => th))(compute(() => el))
+
+    def gradient(src: Boolean): Aggregate[Double] =
+
+        mux(src)(compute(0.0)):
+          rep(Double.PositiveInfinity): d =>
+            hood[Double](Double.PositiveInfinity, _ max _):
+              for
+                d1 <- nbr_range
+                d2 <- nbr(d)
+              yield d1 + d2
 
   object Showcase:
 
     import AdditionalConstructs.{*, given}
 
-    def gradient(src: Boolean): Aggregate[Double] =
 
-      mux(src)(compute(0.0)):
-        rep(Double.PositiveInfinity): d =>
-          hood[Double](Double.PositiveInfinity, _ max _):
-            for
-              d1 <- nbr_range
-              d2 <- nbr(d)
-            yield d1 + d2
 
 
   object Lib:
