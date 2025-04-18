@@ -8,7 +8,7 @@ object AggregateFramework:
   enum Tree[A]:
     case Rep(res: A, nest: Tree[A])
     case Val(res: A)
-    case Next[A](left: Tree[Any], right: Tree[A]) extends Tree[A]
+    case Next[B, A](left: Tree[B], right: Tree[A]) extends Tree[A]
     case Call(fun: Tree[() => Aggregate[A]], nest: Tree[A])
     case Empty()
 
@@ -33,13 +33,13 @@ object AggregateFramework:
 
     extension [A](ag: Aggregate[A])
       def flatMap[B](f: A => Aggregate[B]): Aggregate[B] = aggregate(Next(Empty(), Empty())):
-        case Next(t1, t2) =>
-          val t1o = ag.eval(t1.asInstanceOf[Tree[A]])
-          Next(t1o.asInstanceOf[Tree[Any]], f(t1o.top).eval(t2))
+        case Next[A, B](left, right) =>
+          val l2 = ag.eval(left)
+          Next(l2, f(l2.top).eval(right))
       def map[B](f: A => B): Aggregate[B] = flatMap(a => compute(f(a)))
 
     def rep[A](a: A)(f: A => Aggregate[A]): Aggregate[A] = aggregate(Empty()):
-      case Rep(x, nest) if summon[Domain].contains(selfDevice) => val n = f(x).eval(nest); Rep(n.top, n)
+      case Rep(x, nest) if summon[Domain].contains(selfDevice) => val n2 = f(x).eval(nest); Rep(n2.top, n2)
       case _ => Rep(a, Empty())
 
     def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = aggregate(Call(Empty(), Empty())):
