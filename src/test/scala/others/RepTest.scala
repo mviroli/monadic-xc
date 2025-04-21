@@ -1,12 +1,16 @@
-package scafi
+package others
 
-import org.scalatest.matchers.should.Matchers.*
-import AggregateFramework.*
 import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers.*
+import others.AggregateFramework.*
+import scafi.NValues
+import scafi.NValues.NValue
+import scafi.Trees.Tree
+import scafi.Trees.Tree.*
 
 
 class RepTest extends org.scalatest.funsuite.AnyFunSuite:
-  import AggregateFramework.Aggregate.given
+  import others.AggregateFramework.Aggregate.given
 
   type DomainChange = PartialFunction[Int, Set[Device]]
   given DomainChange = Map.empty
@@ -148,7 +152,7 @@ class RepTest extends org.scalatest.funsuite.AnyFunSuite:
     .shouldBe(List(0, 1, 100, 101, 0, 1, 2, 3))
 
   test("Nvalues and AC"):
-    import NValuesFramework.{*, given}
+    import NValues.{*, given}
 
     val a: Aggregate[NValue[Int]] =
       rep(0 |> (1 -> 100)): v =>

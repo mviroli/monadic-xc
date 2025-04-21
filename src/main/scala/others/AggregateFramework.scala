@@ -1,22 +1,11 @@
-package scafi
+package others
+
+import scafi.Trees.Tree
+import scafi.Trees.Tree.*
 
 object AggregateFramework:
   export Aggregate.{*, given}
   export Lib.*
-  export Tree.*
-
-  enum Tree[A]:
-    case Rep(res: A, nest: Tree[A])
-    case Val(res: A)
-    case Next[B, A](left: Tree[B], right: Tree[A]) extends Tree[A]
-    case Call(fun: Tree[() => Aggregate[A]], nest: Tree[A])
-    case Empty()
-
-    def top: A = this match
-      case Rep(a, _) => a
-      case Val(a) => a
-      case Next(_, r) => r.top
-      case Call( _, n) => n.top
 
   opaque type Device = Int
   val selfDevice: Device = 0
@@ -83,7 +72,7 @@ object AggregateFramework:
 
   object Showcase:
 
-    import AdditionalConstructs.{*, given}
+    import AdditionalConstructs.given
 
 
 
@@ -100,8 +89,6 @@ object AggregateFramework:
       rep(from)(n => for c <- rep(1)(identity) yield c + n)
 
   object FancyLib:
-
-    import AdditionalConstructs.*
 
     def counterWithNesting2(from: Int): Aggregate[Int] =
       rep(from): n =>

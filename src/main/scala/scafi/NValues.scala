@@ -1,6 +1,6 @@
 package scafi
 
-object NValuesFramework:
+object NValues:
 
   import NValue.given
   export NValue.*

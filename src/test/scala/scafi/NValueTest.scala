@@ -2,7 +2,7 @@ package scafi
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import scafi.NValuesFramework.*
+import scafi.NValues.*
 
 
 class NValueTest extends org.scalatest.funsuite.AnyFunSuite:

@@ -1,4 +1,4 @@
-package scafi
+package others
 
 object IndexedVectors:
 
