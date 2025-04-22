@@ -2,10 +2,11 @@ package scafi
 
 import FreeMonads.*
 
-object FreeAggregate:
+object Aggregates:
   export Aggregate.{*, given}
   export Executor.*
   export Executor.Tree.*
+  
 
   enum AggregateDSL[A]:
     case Rep(a: A, f: A => Aggregate[A])
@@ -74,6 +75,6 @@ object FreeAggregate:
 
 
 @main def play =
-  import FreeAggregate.*
+  import Aggregates.*
   given Domain = Set(selfDevice)
   println(rand.foldMap(compiler).apply(TRep(0,TEmpty())))

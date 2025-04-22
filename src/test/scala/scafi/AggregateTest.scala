@@ -3,10 +3,10 @@ package scafi
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import FreeMonads.*
-import scafi.FreeAggregate.{*, given}
-import FreeAggregateTestUtilities.{*, given}
+import scafi.Aggregates.{*, given}
+import AggregateTestUtilities.{*, given}
 
-class FreeAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
+class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("Trees of a constant rep"):
     val ag = rep(5)(identity)

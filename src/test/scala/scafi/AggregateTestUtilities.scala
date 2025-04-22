@@ -1,9 +1,9 @@
 package scafi
 
 import org.scalatest.Assertion
-import scafi.FreeAggregate.{*, given}
+import scafi.Aggregates.{*, given}
 
-object FreeAggregateTestUtilities:
+object AggregateTestUtilities:
   type DomainChange = PartialFunction[Int, Domain]
   given DomainChange = Map.empty
   type TreeChange[A] = PartialFunction[Int, Tree[A]]

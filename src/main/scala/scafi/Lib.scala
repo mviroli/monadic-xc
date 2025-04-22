@@ -1,7 +1,7 @@
 package scafi
 
 object Lib:
-  import FreeAggregate.*
+  import Aggregates.*
 
   def counter: Aggregate[Int] = rep(0)(_ + 1)
 

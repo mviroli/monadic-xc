@@ -24,4 +24,3 @@ object NValues:
     given g[A]: Conversion[A, NValue[A]] = NValue(_, Map.empty)
     extension [A](a: A) def |>(e: (Device, A)*): NValue[A] =
       NValue(a, e.toMap)
-
