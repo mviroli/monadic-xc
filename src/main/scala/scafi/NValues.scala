@@ -2,14 +2,11 @@ package scafi
 
 object NValues:
 
+  import Devices.{*, given}
   import NValue.given
   export NValue.*
 
-  type Device = Int
-  type Domain = Set[Int]
-  val selfDevice: Device = 0
-
-  case class NValue[A](a: A, map: Map[Device, A]):
+  case class NValue[+A](a: A, map: Map[Device, A]):
     override def toString: String = a.toString + "[" + map.mkString(", ") + "]"
     def flatMap[B](f: A => NValue[B]): NValue[B] =
       NValue(f(a).a, (map.keySet ++ f(a).map.keySet).map(k => (k, f(this(k))(k))).toMap)

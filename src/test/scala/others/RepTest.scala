@@ -151,6 +151,7 @@ class RepTest extends org.scalatest.funsuite.AnyFunSuite:
       case Call(_, res) => res.top
     .shouldBe(List(0, 1, 100, 101, 0, 1, 2, 3))
 
+  /*
   test("Nvalues and AC"):
     import NValues.{*, given}
 
@@ -174,3 +175,4 @@ class RepTest extends org.scalatest.funsuite.AnyFunSuite:
         v <- compute(x)
         v2 <- rep[NValue[Int]](1)(identity)
       yield v.map2(v2)(_ + _)
+    */

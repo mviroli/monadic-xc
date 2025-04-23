@@ -2,10 +2,14 @@ package scafi
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import scafi.NValues.*
-
+import NValues.{*, given}
+import Devices.{*, given}
 
 class NValueTest extends org.scalatest.funsuite.AnyFunSuite:
+
+  val devs: Seq[Device] = Seq(selfDevice, Devices.newDevice(), Devices.newDevice(), Devices.newDevice())
+  given [A]: Conversion[(Int, A), (Device, A)] = is => (devs(is._1), is._2)
+  given Conversion[Int, Device] = devs.apply
 
   test("toString"):
     val v: NValue[Int] = 5
