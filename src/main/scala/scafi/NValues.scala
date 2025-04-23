@@ -12,6 +12,7 @@ object NValues:
       NValue(f(a).a, (map.keySet ++ f(a).map.keySet).map(k => (k, f(this(k))(k))).toMap)
     def map[B](f: A => B): NValue[B] = NValue(f(this.a), map.map((k, v) => (k, f(v))))
     def apply(d: Device): A = map.getOrElse(d, a)
+    def self: A = apply(selfDevice)
     def restrict(dom: Domain): NValue[A] = NValue(a, map.filter((k, _) => dom.contains(k)))
     def cut(dom: Domain): NValue[A] = NValue(a, map.filterNot((k, _) => dom.contains(k)))
     def map2[B, C](other: NValue[B])(f: (A, B) => C): NValue[C] =

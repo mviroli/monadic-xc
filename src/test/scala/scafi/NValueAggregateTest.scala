@@ -42,10 +42,9 @@ class NValueAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         8 -> TRep(8.nv, TVal(8.nv)))
 
   test("Trees of a nested counter"):
-    rep2(0): n =>
+    rep(0): n =>
       for
         c <- rep(1)(identity)
-      yield for
         vc <- c
         vn <- n
       yield vn + vc
@@ -56,47 +55,50 @@ class NValueAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("Trees of a call to a non-aggregate program"):
     val f: () => Aggregate[NValue[Int]] = () => 1.nv
-    val ag: Aggregate[NValue[Int]] = call2(f)
-    println(ag.repeat().take(2).toList)
-    ag.repeat().take(2) shouldBe Seq(
-      TCall(TVal(f), TVal(1.nv)),
-      TCall(TVal(f), TVal(1.nv)))
-/*
-  test("Trees of a call to an aggregate program"):
-    val f = () => rep(0)(_ + 1)
     call(f).repeat().take(2) shouldBe Seq(
-      TCall(TVal(f), TRep(0, TEmpty())),
-      TCall(TVal(f), TRep(1, TVal(1))))
+      TCall(TVal(f), TVal(1.nv)), // is that f ok???
+      TCall(TVal(f), TVal(1.nv)))
+
+  test("Trees of a call to an aggregate program"):
+    val f:() => Aggregate[NValue[Int]] = () => counter(0)
+    call(f).repeat().take(2) shouldBe Seq(
+      TCall(TVal(f), TRep(0.nv, TEmpty())),
+      TCall(TVal(f), TRep(1.nv, TVal(1.nv))))
+
 
   test("Trees of a rep restarting due to a synthetic function change"):
-    val f1 = () => rep(0)(_ + 1)
-    val f2 = () => rep(0)(_ + 1)
+    val f1 = () => counter(0)
+    val f2 = () => counter(0)
     val c1 = call(f1)
     val c2 = call(f2)
-    c1.evalOne(TCall(TVal(f1), TRep(0, TEmpty()))) shouldBe TCall(TVal(f1), TRep(1, TVal(1)))
-    c2.evalOne(TCall(TVal(f1), TRep(0, TEmpty()))) shouldBe TCall(TVal(f2), TRep(0, TEmpty()))
+    c1.evalOne(TCall(TVal(f1), TRep(0.nv, TEmpty()))) shouldBe TCall(TVal(f1), TRep(1.nv, TVal(1.nv)))
+    c2.evalOne(TCall(TVal(f1), TRep(0.nv, TEmpty()))) shouldBe TCall(TVal(f2), TRep(0.nv, TEmpty()))
 
   test("Trees of a rep used to compute a boolean"):
-    val ag = for c <- rep(0)(_ + 1) yield c < 3
+    val ag = for
+      c <- counter(0)
+      vc <- c
+    yield vc < 3
     ag.repeat().take(6) shouldBe Seq(
-      TNext(TRep(0, TEmpty()), TVal(true)),
-      TNext(TRep(1, TVal(1)), TVal(true)),
-      TNext(TRep(2, TVal(2)), TVal(true)),
-      TNext(TRep(3, TVal(3)), TVal(false)),
-      TNext(TRep(4, TVal(4)), TVal(false)),
-      TNext(TRep(5, TVal(5)), TVal(false)))
+      TNext(TRep(0.nv, TEmpty()), TVal(true.nv)),
+      TNext(TRep(1.nv, TVal(1.nv)), TVal(true.nv)),
+      TNext(TRep(2.nv, TVal(2.nv)), TVal(true.nv)),
+      TNext(TRep(3.nv, TVal(3.nv)), TVal(false.nv)),
+      TNext(TRep(4.nv, TVal(4.nv)), TVal(false.nv)),
+      TNext(TRep(5.nv, TVal(5.nv)), TVal(false.nv)))
 
   test("Results of muxing with a rep"):
-    import Lib.*
-    val ag = mux(for c <- rep(0)(_ + 1) yield c < 2)(1)(2)
+    import NValueLib.mux
+    val ag = mux(for c <- counter(0); vc <- c yield vc < 2)(1.nv)(2.nv)
     // could also test a match
-    ag.repeat().take(4).toList.map(_.top) shouldBe List(1, 1, 2, 2)
+    ag.repeat().take(4).toList.map(_.top) shouldBe List(1.nv, 1.nv, 2.nv, 2.nv)
 
   test("Results of muxing a counter with a rep"):
-    import Lib.*
-    val ag = mux(for c <- rep(0)(_ + 1) yield c < 2 || c > 3)(counter)(100)
-    ag.repeat().take(8).toList.map(_.top) shouldBe List(0, 1, 100, 100, 4, 5, 6, 7)
+    import NValueLib.mux
+    val ag = mux(for c <- counter(0); vc <- c yield vc < 2 || vc > 3)(counter(0))(100.nv)
+    ag.repeat().take(8).toList.map(_.top).map(_.self) shouldBe List(0, 1, 100, 100, 4, 5, 6, 7)
 
+  /*
   test("Trees of a simple branch"):
     import Lib.*
     branch(true)("a")("b").repeat().take(2).toList match
