@@ -1,9 +1,9 @@
 package scafi
 
 object NValueLib:
-  import NValueAggregates.{*, given}
+  import AggregatesNFWithFree.{*, given}
 
-  def mux[A](b: Aggregate[NValue[Boolean]])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+  def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
     for
       cond <- b
       t <- th
@@ -11,10 +11,7 @@ object NValueLib:
     yield if cond.self then t else e
 
 
-
-  /*
   def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
     call:
       mux(cond)(() => th)(() => el)
-  */
 

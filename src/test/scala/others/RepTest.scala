@@ -5,8 +5,8 @@ import org.scalatest.matchers.should.Matchers.*
 import others.AggregateFramework.*
 import scafi.NValues
 import scafi.NValues.NValue
-import scafi.Trees.Tree
-import scafi.Trees.Tree.*
+import preFree.Trees.Tree
+import preFree.Trees.Tree.*
 
 
 class RepTest extends org.scalatest.funsuite.AnyFunSuite:

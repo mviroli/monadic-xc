@@ -1,7 +1,7 @@
-package scafi
+package firstorder
 
 object Lib:
-  import Aggregates.*
+  import firstorder.Aggregates.*
 
   def counter: Aggregate[Int] = rep(0)(_ + 1)
 

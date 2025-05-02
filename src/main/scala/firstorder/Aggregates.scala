@@ -1,6 +1,6 @@
-package scafi
+package firstorder
 
-import FreeMonads.*
+import preFree.FreeMonads.{Free, Monad, ~>}
 
 object Aggregates:
   export Aggregate.{*, given}

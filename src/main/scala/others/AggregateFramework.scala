@@ -1,7 +1,7 @@
 package others
 
-import scafi.Trees.Tree
-import scafi.Trees.Tree.*
+import preFree.Trees.Tree
+import preFree.Trees.Tree.*
 
 object AggregateFramework:
   export Aggregate.{*, given}

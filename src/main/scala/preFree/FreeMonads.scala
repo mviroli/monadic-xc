@@ -1,4 +1,4 @@
-package scafi
+package preFree
 
 object FreeMonads:
   trait Monad[M[_]]:
