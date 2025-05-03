@@ -101,22 +101,22 @@ object AggregatesNFWithFree:
       val right2 = f(left2.top)(cleanedMap.collectValues{ case Matchers.Next(left: Tree[A], right: Tree[B]) => right})
       TNext(left2.asInstanceOf[Tree[Any]], right2)
 
-  // ADAPT TO NEW ROUND DOWN HERE
   def compiler: AggregateAST ~~> Round = new (AggregateAST ~~> Round):
     override def apply[A] =
       case Val(a) => _ => TVal(a)
-      case Rep(a, f) => map => Matchers.cleanEmpty(map(selfDevice))(TEmpty()) match
+      case Rep(a, f) => map => map.applyOrElse(selfDevice, _ => TEmpty[A]()) match
         case TRep(x, nest) =>
           val nest2 = f(x).foldMap(compiler).apply(local(nest))
           TRep(nest2.top, nest2)
         case _ => TRep(a, TEmpty())
-      case Call(f) => map => Matchers.cleanEmpty(map(selfDevice))(TCall(TEmpty(), TEmpty())) match
-        case TCall(fun, nest) =>
-          val fun2 = f.foldMap(compiler).apply(local(fun))
-          if fun != TEmpty() && fun.top(selfDevice) == fun2.top(selfDevice)
-            then TCall(fun2, fun2.top.apply(selfDevice)().foldMap(compiler).apply(local(nest)))
-            else TCall(fun2, fun2.top.apply(selfDevice)().foldMap(compiler).apply(local(TEmpty())))
-            //else TCall(fun2, fun2.top.apply(selfDevice)().foldMap(compiler).apply(using summon[Domain] - selfDevice)(Map(selfDevice -> TEmpty())))
+      case Call(f) => map =>
+        val fun2 = f.foldMap(compiler).apply(map.collectValues { case TCall(fun, _) => fun })
+        val preNest2 = if fun2 == TEmpty()
+          then local(TEmpty())
+          else map.collectValues:
+            case TCall(fun, nest) if fun.top(selfDevice) == fun2.top(selfDevice) => nest
+        val nest2 = if preNest2.isDefinedAt(selfDevice) then preNest2 else preNest2 + (selfDevice -> TEmpty())
+        TCall(fun2, fun2.top.apply(selfDevice)().foldMap(compiler).apply(nest2))
 
 @main def testNFwF =
   import AggregatesNFWithFree.*
