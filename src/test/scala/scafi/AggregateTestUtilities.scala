@@ -14,12 +14,14 @@ object AggregateTestUtilities:
   def withTreeChange[A](treeChange: TreeChange[A])(body: TreeChange[A] ?=> Assertion): Assertion = body(using treeChange)
 
   extension [A](a: Aggregate[A])
-    def repeat(initial: Tree[A] = TEmpty[A](), dom: Domain = Set(selfDevice))
+    def repeat(initial: Context[A] = local(TEmpty[A]()), dom: Domain = Set(selfDevice))
               (using domainChange: DomainChange)(using treeChange: TreeChange[A]): LazyList[Tree[A]] =
-      LazyList.iterate((-1, initial)):
-        (step, tree) => (step + 1, a.foldMap(compiler).apply(using domainChange.applyOrElse(step + 1, _ => dom))(tree))
-      .map(_._2).drop(1)
+      LazyList.iterate((-1, initial)): (step, context) =>
+        val preCtx = restrict(context)(domainChange.applyOrElse(step + 1, _ => context.keySet))
+        val ctx = if preCtx.isEmpty then local(TEmpty[A]()) else preCtx
+        (step + 1, local(a.foldMap(compiler).apply(ctx)))
+      .map(_._2).map(_(selfDevice)).drop(1)
 
-    def evalOne(initial: Tree[A] = TEmpty(), dom: Domain = Set(selfDevice)): Tree[A] =
+    def evalOne(initial: Context[A] = local(TEmpty[A]()), dom: Domain = Set(selfDevice)): Tree[A] =
       repeat(initial, dom)(0)
 

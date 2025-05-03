@@ -70,8 +70,8 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val f2 = () => counter(0)
     val c1 = call(f1)
     val c2 = call(f2)
-    c1.evalOne(TCall(TVal(f1), TRep(0.nv, TEmpty()))) shouldBe TCall(TVal(f1), TRep(1.nv, TVal(1.nv)))
-    c2.evalOne(TCall(TVal(f1), TRep(0.nv, TEmpty()))) shouldBe TCall(TVal(f2), TRep(0.nv, TEmpty()))
+    c1.evalOne(local(TCall(TVal(f1), TRep(0.nv, TEmpty())))) shouldBe TCall(TVal(f1), TRep(1.nv, TVal(1.nv)))
+    c2.evalOne(local(TCall(TVal(f1), TRep(0.nv, TEmpty())))) shouldBe TCall(TVal(f2), TRep(0.nv, TEmpty()))
 
   test("Trees of a rep used to compute a boolean"):
     val ag = for
