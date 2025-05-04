@@ -44,6 +44,8 @@ object AggregatesNFWithFree:
     case Val(a: NValue[A])
     case Rep(a: NValue[A], f: NValue[A] => Aggregate[A])
     case Call(f: Aggregate[() => Aggregate[A]])
+    case Xc(a: NValue[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
+
   import AggregateAST.*
 
   type Aggregate[A] = CFree[AggregateAST, NValue, A]
@@ -55,6 +57,7 @@ object AggregatesNFWithFree:
     def compute[A](a: NValue[A]): Aggregate[A] = CFree.liftM(Val(a))
     def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = CFree.liftM(Rep(a, f))
     def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = CFree.liftM(Call(f))
+    def exchange[A](a: NValue[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = CFree.liftM(Xc(a, f))
 
   export Devices.*
   enum Tree[A]:
@@ -62,6 +65,7 @@ object AggregatesNFWithFree:
     case TVal(res: NValue[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
     case TCall(fun: Tree[() => Aggregate[A]], nest: Tree[A])
+    case TXc(ret: Tree[A], send: Tree[A])
     case TEmpty()
 
     def top: NValue[A] = this match
@@ -69,6 +73,7 @@ object AggregatesNFWithFree:
       case TVal(a) => a
       case TNext(_, r) => r.top
       case TCall(_, n) => n.top
+      case TXc(ret, _) => ret.top
 
   import Tree.*
   object Matchers:
@@ -79,6 +84,9 @@ object AggregatesNFWithFree:
         if t == TEmpty() then TNext(TEmpty(), TEmpty()) else t.asInstanceOf[TNext[A]]
     object Rep:
       def unapply[A](t: Tree[A]): TRep[A] = t.asInstanceOf[TRep[A]]
+    object Xc:
+      def unapply[A](t: Tree[A]): TXc[A] =
+        if t == TEmpty() then TXc(TEmpty(), TEmpty()) else t.asInstanceOf[TXc[A]]
 
   def let[A, B](a: A)(f: A => B): B = f(a)
 
@@ -117,6 +125,7 @@ object AggregatesNFWithFree:
             case TCall(fun, nest) if fun.top(selfDevice) == fun2.top(selfDevice) => nest
         val nest2 = if preNest2.isDefinedAt(selfDevice) then preNest2 else preNest2 + (selfDevice -> TEmpty())
         TCall(fun2, fun2.top.apply(selfDevice)().foldMap(compiler).apply(nest2))
+      case Xc(a, f) => map => map(selfDevice)
 
 @main def testNFwF =
   import AggregatesNFWithFree.*
