@@ -23,6 +23,7 @@ object NValues:
     extension [A](a: A) def |>(e: (Device, A)*): NValue[A] =
       NValue(a, e.toMap)
 
+/*
 object AggregateAttempts:
 
   trait NValue[A]:
@@ -94,3 +95,4 @@ object AggregateFOAttempts:
 
 end AggregateFOAttempts
 
+*/

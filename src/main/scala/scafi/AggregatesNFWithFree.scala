@@ -44,7 +44,7 @@ object AggregatesNFWithFree:
     case Val(a: NValue[A])
     case Rep(a: NValue[A], f: NValue[A] => Aggregate[A])
     case Call(f: Aggregate[() => Aggregate[A]])
-    case Xc(a: NValue[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
+    case Xc(a: Aggregate[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
 
   import AggregateAST.*
 
@@ -57,7 +57,8 @@ object AggregatesNFWithFree:
     def compute[A](a: NValue[A]): Aggregate[A] = CFree.liftM(Val(a))
     def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = CFree.liftM(Rep(a, f))
     def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = CFree.liftM(Call(f))
-    def exchange[A](a: NValue[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = CFree.liftM(Xc(a, f))
+    def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = CFree.liftM(Xc(a, f))
+
 
   export Devices.*
   enum Tree[A]:
@@ -65,7 +66,7 @@ object AggregatesNFWithFree:
     case TVal(res: NValue[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
     case TCall(fun: Tree[() => Aggregate[A]], nest: Tree[A])
-    case TXc(ret: Tree[A], send: Tree[A])
+    case TXc(init: Tree[A], ret: Tree[A], send: Tree[A])
     case TEmpty()
 
     def top: NValue[A] = this match
@@ -73,29 +74,22 @@ object AggregatesNFWithFree:
       case TVal(a) => a
       case TNext(_, r) => r.top
       case TCall(_, n) => n.top
-      case TXc(ret, _) => ret.top
+      case TXc(_, ret, _) => ret.top
 
   import Tree.*
-  object Matchers:
-    def cleanEmpty[A](t: Tree[A])(orElse: Tree[A])(using Domain): Tree[A] =
-      if t == TEmpty() || !summon[Domain].contains(selfDevice) then orElse else t
-    object Next:
-      def unapply[A](t: Tree[A]): TNext[A] =
-        if t == TEmpty() then TNext(TEmpty(), TEmpty()) else t.asInstanceOf[TNext[A]]
-    object Rep:
-      def unapply[A](t: Tree[A]): TRep[A] = t.asInstanceOf[TRep[A]]
-    object Xc:
-      def unapply[A](t: Tree[A]): TXc[A] =
-        if t == TEmpty() then TXc(TEmpty(), TEmpty()) else t.asInstanceOf[TXc[A]]
 
   def let[A, B](a: A)(f: A => B): B = f(a)
 
   import Tree.*
-  type Context[A] = Map[Device, Tree[A]]
+
+  object Contexts:
+    type Context[A] = Map[Device, Tree[A]]
+    def local[A](t: Tree[A]): Context[A] = Map(selfDevice -> t)
+    def restrict[A](c: Context[A])(domain: Domain): Context[A] = c.filter((d, _) => domain.contains(d))
+
+  export Contexts.*
   type Round[A] = Context[A] => Tree[A]
 
-  def local[A](t: Tree[A]): Context[A] = Map(selfDevice -> t)
-  def restrict[A](c: Context[A])(domain: Domain): Context[A] = c.filter((d, _) => domain.contains(d))
 
   extension [K, V, W](m: Map[K, V]) def collectValues(pf: PartialFunction[V, W]): Map[K, W] =
     m.collect:
@@ -104,9 +98,8 @@ object AggregatesNFWithFree:
   given CMonad[Round, NValue] with
     def pure[A](a: NValue[A]): Round[A] = _ => TVal(a)
     def flatMap[A, B](ma: Round[A])(f: NValue[A] => Round[B]): Round[B] = map =>
-      val cleanedMap = map.collectValues(t => Matchers.cleanEmpty(t)(TNext(TEmpty(), TEmpty())))
-      val left2 = ma(cleanedMap.collectValues{ case Matchers.Next(left: Tree[A], right: Tree[B]) => left})
-      val right2 = f(left2.top)(cleanedMap.collectValues{ case Matchers.Next(left: Tree[A], right: Tree[B]) => right})
+      val left2 = ma(map.collectValues{ case TNext(left: Tree[A], right: Tree[B]) => left})
+      val right2 = f(left2.top)(map.collectValues{ case TNext(left: Tree[A], right: Tree[B]) => right})
       TNext(left2.asInstanceOf[Tree[Any]], right2)
 
   def compiler: AggregateAST ~~> Round = new (AggregateAST ~~> Round):
@@ -125,7 +118,14 @@ object AggregatesNFWithFree:
             case TCall(fun, nest) if fun.top(selfDevice) == fun2.top(selfDevice) => nest
         val nest2 = if preNest2.isDefinedAt(selfDevice) then preNest2 else preNest2 + (selfDevice -> TEmpty())
         TCall(fun2, fun2.top.apply(selfDevice)().foldMap(compiler).apply(nest2))
-      case Xc(a, f) => map => map(selfDevice)
+      case Xc(a, f) => map =>
+        val init2 = a.foldMap(compiler).apply(map.collectValues{ case TXc(init, _, _) => init})
+        val l = init2.top.apply(selfDevice)
+        val w = NValue(l, map.collectValues{ case TXc(_, _, send) => send.top(selfDevice)})
+        val ret2 = f(w)._1.foldMap(compiler).apply(map.collectValues{ case TXc(_, r, s) => r})
+        val send2 = f(w)._2.foldMap(compiler).apply(map.collectValues{ case TXc(_, r, s) => s})
+        TXc(init2, ret2, send2)
+
 
 @main def testNFwF =
   import AggregatesNFWithFree.*
@@ -152,3 +152,17 @@ object AggregatesNFWithFree:
     i2 <- a2
   yield i1 + i2
   def caller = call(() => counter)
+
+  /*
+  object Matchers:
+    def cleanEmpty[A](t: Tree[A])(orElse: Tree[A])(using Domain): Tree[A] =
+      if t == TEmpty() || !summon[Domain].contains(selfDevice) then orElse else t
+    object Next:
+      def unapply[A](t: Tree[A]): TNext[A] =
+        if t == TEmpty() then TNext(TEmpty(), TEmpty()) else t.asInstanceOf[TNext[A]]
+    object Rep:
+      def unapply[A](t: Tree[A]): TRep[A] = t.asInstanceOf[TRep[A]]
+    object Xc:
+      def unapply[A](t: Tree[A]): TXc[A] =
+        if t == TEmpty() then TXc(TEmpty(), TEmpty()) else t.asInstanceOf[TXc[A]]
+  */
