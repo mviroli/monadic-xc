@@ -20,6 +20,8 @@ object NValues:
 
   object NValue:
     given g[A]: Conversion[A, NValue[A]] = NValue(_, Map.empty)
+    def apply[A](a: A): NValue[A] = apply(a, Map.empty)
+    def apply[A](a: A, map: Map[Device, A]): NValue[A] = new NValue(a, map.filterNot((_, v) => v == a))
     extension [A](a: A) def |>(e: (Device, A)*): NValue[A] =
       NValue(a, e.toMap)
 

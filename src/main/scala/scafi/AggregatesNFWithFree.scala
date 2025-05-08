@@ -42,7 +42,6 @@ object AggregatesNFWithFree:
 
   enum AggregateAST[A]:
     case Val(a: NValue[A])
-    case Rep(a: NValue[A], f: NValue[A] => Aggregate[A])
     case Call(f: Aggregate[() => Aggregate[A]])
     case Xc(a: Aggregate[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
 
@@ -55,9 +54,10 @@ object AggregatesNFWithFree:
     given [A]: Conversion[NValue[A], Aggregate[A]] = compute
 
     def compute[A](a: NValue[A]): Aggregate[A] = CFree.liftM(Val(a))
-    def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = CFree.liftM(Rep(a, f))
+    //def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = CFree.liftM(Rep(a, f))
     def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = CFree.liftM(Call(f))
     def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = CFree.liftM(Xc(a, f))
+    def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = exchange(compute(a))(x => {val r = f(NValue(x(selfDevice))); (r, r)})
 
 
   export Devices.*
@@ -75,6 +75,10 @@ object AggregatesNFWithFree:
       case TNext(_, r) => r.top
       case TCall(_, n) => n.top
       case TXc(_, ret, _) => ret.top
+
+    def topOrNull: NValue[A] = this match
+      case TEmpty() => null
+      case _ => this.top
 
   import Tree.*
 
@@ -105,11 +109,6 @@ object AggregatesNFWithFree:
   def compiler: AggregateAST ~~> Round = new (AggregateAST ~~> Round):
     override def apply[A] =
       case Val(a) => _ => TVal(a)
-      case Rep(a, f) => map => map.applyOrElse(selfDevice, _ => TEmpty[A]()) match
-        case TRep(x, nest) =>
-          val nest2 = f(x).foldMap(compiler).apply(local(nest))
-          TRep(nest2.top, nest2)
-        case _ => TRep(a, TEmpty())
       case Call(f) => map =>
         val fun2 = f.foldMap(compiler).apply(map.collectValues { case TCall(fun, _) => fun })
         val preNest2 = if fun2 == TEmpty()
