@@ -9,6 +9,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
   import Tree.*
   extension [A](a: A) def nv: NValue[A] = NValue(a, Map.empty)
   def counter(initial: Int) = rep(initial)(for i <- _ yield i + 1)
+  given Device = selfDevice
 
   test("Trees of a constant rep"):
     val ag: Aggregate[Int] = rep(5)(identity)
@@ -87,5 +88,18 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ag = branch(agb)(counter(0))(100)
     // could also test a match
     ag.repeat().take(6).toList.map(_.top) shouldBe List(1.nv, 2.nv, 100.nv, 100.nv, 1.nv, 2.nv)
+
+  test("Interaction with a neighbour"):
+    val ag = exchange(0)(n => {val rs = for i <- n yield i + 1; (rs, rs)})
+    val d1 = newDevice()
+    val r1: Tree[Int] = ag.evalOne(using d1)(Map(d1 -> TEmpty()), Set(d1))
+    r1.top shouldBe 1.nv
+    val d2 = newDevice()
+    val r2: Tree[Int] = ag.evalOne(using d2)(Map(d2 -> TEmpty(), d1 -> r1), Set(d1, d2))
+    r2.top shouldBe NValue(1, Map(d1 -> 2))
+    val r2b = ag.evalOne(using d2)(Map(d2 -> r2, d1 -> r1), Set(d1, d2))
+    r2b.top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
+    ag.evalOne(using d2)(Map(d2 -> r2b, d1 -> r1), Set(d1, d2)).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 3))
+
 
 

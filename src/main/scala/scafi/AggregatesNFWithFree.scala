@@ -54,7 +54,6 @@ object AggregatesNFWithFree:
     given [A]: Conversion[NValue[A], Aggregate[A]] = compute
 
     def compute[A](a: NValue[A]): Aggregate[A] = CFree.liftM(Val(a))
-    //def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = CFree.liftM(Rep(a, f))
     def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = CFree.liftM(Call(f))
     def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = CFree.liftM(Xc(a, f))
     def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = exchange(compute(a))(x => {val r = f(NValue(x(selfDevice))); (r, r)})
@@ -76,23 +75,15 @@ object AggregatesNFWithFree:
       case TCall(_, n) => n.top
       case TXc(_, ret, _) => ret.top
 
-    def topOrNull: NValue[A] = this match
-      case TEmpty() => null
-      case _ => this.top
-
-  import Tree.*
-
-  def let[A, B](a: A)(f: A => B): B = f(a)
-
   import Tree.*
 
   object Contexts:
     type Context[A] = Map[Device, Tree[A]]
-    def local[A](t: Tree[A]): Context[A] = Map(selfDevice -> t)
+    def local[A](using Device)(t: Tree[A]): Context[A] = Map(summon[Device] -> t)
     def restrict[A](c: Context[A])(domain: Domain): Context[A] = c.filter((d, _) => domain.contains(d))
 
   export Contexts.*
-  type Round[A] = Context[A] => Tree[A]
+  type Round[A] = Device ?=> Context[A] => Tree[A]
 
 
   extension [K, V, W](m: Map[K, V]) def collectValues(pf: PartialFunction[V, W]): Map[K, W] =
@@ -114,13 +105,13 @@ object AggregatesNFWithFree:
         val preNest2 = if fun2 == TEmpty()
           then local(TEmpty())
           else map.collectValues:
-            case TCall(fun, nest) if fun.top(selfDevice) == fun2.top(selfDevice) => nest
-        val nest2 = if preNest2.isDefinedAt(selfDevice) then preNest2 else preNest2 + (selfDevice -> TEmpty())
-        TCall(fun2, fun2.top.apply(selfDevice)().foldMap(compiler).apply(nest2))
+            case TCall(fun, nest) if fun.top(summon[Device]) == fun2.top(summon[Device]) => nest
+        val nest2 = if preNest2.isDefinedAt(summon[Device]) then preNest2 else preNest2 + (summon[Device] -> TEmpty())
+        TCall(fun2, fun2.top.apply(summon[Device])().foldMap(compiler).apply(nest2))
       case Xc(a, f) => map =>
         val init2 = a.foldMap(compiler).apply(map.collectValues{ case TXc(init, _, _) => init})
-        val l = init2.top.apply(selfDevice)
-        val w = NValue(l, map.collectValues{ case TXc(_, _, send) => send.top(selfDevice)})
+        val l = init2.top.apply(summon[Device])
+        val w = NValue(l, map.collectValues{ case TXc(_, _, send) => send.top(summon[Device])})
         val ret2 = f(w)._1.foldMap(compiler).apply(map.collectValues{ case TXc(_, r, s) => r})
         val send2 = f(w)._2.foldMap(compiler).apply(map.collectValues{ case TXc(_, r, s) => s})
         TXc(init2, ret2, send2)
@@ -138,6 +129,7 @@ object AggregatesNFWithFree:
     i1 <- a1
     i2 <- a2
   yield i1 + i2
+  given Device = selfDevice
   println(ag3.foldMap(compiler).apply(local(TEmpty())))
 
 @main def playNFwF =

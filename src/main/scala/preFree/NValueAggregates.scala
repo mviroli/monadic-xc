@@ -75,14 +75,4 @@ object NValueAggregates:
             then TCall(fun2, fun2.top().foldMap(compiler).apply(nest))
             else TCall(fun2, fun2.top().foldMap(compiler).apply(using summon[Domain] - selfDevice)(TEmpty()))
 
-@main def playNA =
-      import NValueAggregates.{*, given}
 
-      val otherDevice = Devices.newDevice()
-      def rand = rep(0): n =>
-        for
-          vn <- n
-          v1 <- NValue(1, Map(otherDevice -> 0))
-        yield vn + v1
-      println(rand.foldMap(compiler).apply(TRep(NValue(0, Map.empty),TEmpty())))
-      // TRep(1[1 -> 0],TVal(1[1 -> 0]))
