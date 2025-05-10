@@ -1,7 +1,7 @@
 package scafi
 
-object NValueLib:
-  import AggregatesNFWithFree.{*, given}
+object AggregateLib:
+  import Aggregates.{*, given}
 
   def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
     for

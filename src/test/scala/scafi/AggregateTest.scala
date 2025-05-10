@@ -3,7 +3,7 @@ package scafi
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import scafi.AggregateTestUtilities.{*, given}
-import scafi.AggregatesNFWithFree.{*, given}
+import scafi.Aggregates.{*, given}
 
 class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
   import Tree.*
@@ -57,7 +57,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(6).map(_.top) shouldBe Seq(true.nv, true.nv, false.nv, false.nv, false.nv, false.nv)
 
   test("Results of muxing with a rep"):
-    import NValueLib.mux
+    import AggregateLib.mux
     val agb: Aggregate[Boolean] = for
       c <- counter(0)
     yield for
@@ -68,7 +68,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).toList.map(_.top) shouldBe List(1.nv, 1.nv, 2.nv, 2.nv)
 
   test("Results of muxing a counter with a rep"):
-    import NValueLib.mux
+    import AggregateLib.mux
     val agb = for
       c <- counter(0)
     yield for
@@ -79,7 +79,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(6).toList.map(_.top) shouldBe List(1.nv, 2.nv, 100.nv, 100.nv, 5.nv, 6.nv)
 
   test("Results of branching a counter with a rep"):
-    import NValueLib.branch
+    import AggregateLib.branch
     val agb = for
       c <- counter(0)
     yield for
