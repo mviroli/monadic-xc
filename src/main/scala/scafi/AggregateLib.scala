@@ -3,15 +3,15 @@ package scafi
 object AggregateLib:
   import Aggregates.{*, given}
 
-  def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+  def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A])(using Device): Aggregate[A] =
     for
       cond <- b
       t <- th
       e <- el
-    yield if cond.self then t else e
+    yield if local(cond) then t else e
 
 
-  def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+  def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A])(using Device): Aggregate[A] =
     call:
       mux(cond)(() => th)(() => el)
 

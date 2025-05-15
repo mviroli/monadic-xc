@@ -10,6 +10,7 @@ class NValueTest extends org.scalatest.funsuite.AnyFunSuite:
   val devs: Seq[Device] = Seq(selfDevice, Devices.newDevice(), Devices.newDevice(), Devices.newDevice())
   given [A]: Conversion[(Int, A), (Device, A)] = is => (devs(is._1), is._2)
   given Conversion[Int, Device] = devs.apply
+  //given Device = selfDevice
 
   test("toString"):
     val v: NValue[Int] = 5
@@ -18,10 +19,10 @@ class NValueTest extends org.scalatest.funsuite.AnyFunSuite:
     ("z" |> (0 -> "a", 1 -> "b")).toString shouldBe "z[0 -> a, 1 -> b]"
 
   test("get"):
-    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c"))(0) shouldBe "a"
-    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c"))(1) shouldBe "b"
-    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c"))(2) shouldBe "c"
-    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c"))(3) shouldBe "z"
+    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).get(0) shouldBe "a"
+    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).get(1) shouldBe "b"
+    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).get(2) shouldBe "c"
+    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).get(3) shouldBe "z"
 
   test("restrict"):
     NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).restrict(Set(1)) shouldBe NValue("z", Map(1 -> "b"))

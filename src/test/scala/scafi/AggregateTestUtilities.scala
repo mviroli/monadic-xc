@@ -15,14 +15,14 @@ object AggregateTestUtilities:
 
   extension [A](a: Aggregate[A])
     def repeat(using device: Device)
-              (initial: Context[A] = local(TEmpty[A]()), dom: Domain = Set(device))
+              (initial: Context[A] = localContext(TEmpty[A]()), dom: Domain = Set(device))
               (using domainChange: DomainChange)(using treeChange: TreeChange[A]): LazyList[Tree[A]] =
       LazyList.iterate((-1, initial)): (step, context) =>
         val preCtx = restrict(context)(domainChange.applyOrElse(step + 1, _ => context.keySet))
-        val ctx = if preCtx.isEmpty then local(TEmpty[A]()) else preCtx
-        (step + 1, local(a.round(ctx)))
+        val ctx = if preCtx.isEmpty then localContext(TEmpty[A]()) else preCtx
+        (step + 1, localContext(a.round(ctx)))
       .map(_._2).map(_(device)).drop(1)
 
-    def evalOne(using device: Device)(initial: Context[A] = local(TEmpty[A]()), dom: Domain = Set(device)): Tree[A] =
+    def evalOne(using device: Device)(initial: Context[A] = localContext(TEmpty[A]()), dom: Domain = Set(device)): Tree[A] =
       repeat(initial, dom)(0)
 

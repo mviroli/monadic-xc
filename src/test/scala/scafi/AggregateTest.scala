@@ -7,13 +7,16 @@ import scafi.Aggregates.{*, given}
 
 class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
   import Tree.*
-  extension [A](a: A) def nv: NValue[A] = NValue(a, Map.empty)
   def counter(initial: Int) = rep(initial)(for i <- _ yield i + 1)
   given Device = selfDevice
 
   test("Trees of a constant rep"):
     val ag: Aggregate[Int] = rep(5)(identity)
     ag.repeat().take(4).map(_.top) shouldBe List(5.nv, 5.nv, 5.nv, 5.nv)
+
+  test("Trees of a counter"):
+    val ag = rep(5)(n => for i <- n yield i + 1)
+    ag.repeat().take(3).map(_.top) shouldBe List(6.nv, 7.nv, 8.nv)
 
   test("Trees of a counter, with restart"):
     withDomainChange({case 3 | 4 | 5 => Set()}):
@@ -37,17 +40,6 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val f:() => Aggregate[Int] = () => counter(0)
     call(f).repeat().take(3).map(_.top) shouldBe Seq(1.nv, 2.nv, 3.nv)
 
-/*
-
-  test("Trees of a rep restarting due to a synthetic function change"):
-    val f1 = () => counter(0)
-    val f2 = () => counter(0)
-    val c1 = call(f1)
-    val c2 = call(f2)
-    c1.evalOne(local(TCall(TVal(f1), TRep(0.nv, TEmpty())))) shouldBe TCall(TVal(f1), TRep(1.nv, TVal(1.nv)))
-    c2.evalOne(local(TCall(TVal(f1), TRep(0.nv, TEmpty())))) shouldBe TCall(TVal(f2), TRep(0.nv, TEmpty()))
-*/
-
   test("Trees of a rep used to compute a boolean"):
     val ag = for
       c <- counter(0)
@@ -64,7 +56,6 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       vc <- c
     yield vc < 3
     val ag = mux(agb)(1)(2)
-    // could also test a match
     ag.repeat().take(4).toList.map(_.top) shouldBe List(1.nv, 1.nv, 2.nv, 2.nv)
 
   test("Results of muxing a counter with a rep"):
@@ -86,7 +77,6 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       vc <- c
     yield vc < 3 || vc > 4
     val ag = branch(agb)(counter(0))(100)
-    // could also test a match
     ag.repeat().take(6).toList.map(_.top) shouldBe List(1.nv, 2.nv, 100.nv, 100.nv, 1.nv, 2.nv)
 
   test("Interaction with a neighbour"):
@@ -101,5 +91,27 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     r2b.top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
     ag.evalOne(using d2)(Map(d2 -> r2b, d1 -> r1), Set(d1, d2)).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 3))
 
-
-
+  test("Interaction with a neighbour, branched"):
+    import AggregateLib.branch
+    var cond = false
+    def getCond = cond
+    val agf = branch(compute(cond))(0):
+      exchange(0):n =>
+        val rs = for i <- n yield i + 1
+        (rs, rs)
+    val d1 = newDevice()
+    val d2 = newDevice()
+    val r1: Tree[Int] = agf.evalOne(using d1)(Map(d1 -> TEmpty()), Set(d1))
+    r1.top shouldBe 1.nv
+    val r2: Tree[Int] = agf.evalOne(using d2)(Map(d2 -> TEmpty(), d1 -> r1), Set(d1, d2))
+    r2.top shouldBe NValue(1, Map(d1 -> 2))
+    val r2b = agf.evalOne(using d2)(Map(d2 -> r2, d1 -> r1), Set(d1, d2))
+    r2b.top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
+    cond = true
+    val r2c = agf.evalOne(using d2)(Map(d2 -> r2b, d1 -> r1), Set(d1, d2))
+    r2c.top shouldBe 0.nv
+    cond = false
+    val r1b = agf.evalOne(using d1)(Map(d2 -> r2c, d1 -> r1), Set(d1, d2))
+    r1b.top shouldBe NValue(1, Map(d1 -> 2))
+    val r2d = agf.evalOne(using d2)(Map(d2 -> r2c, d1 -> r1b), Set(d1, d2))
+    r2d.top shouldBe NValue(1, Map(d1 -> 2))
