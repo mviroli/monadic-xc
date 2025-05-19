@@ -15,14 +15,21 @@ object AggregateTestUtilities:
 
   extension [A](a: Aggregate[A])
     def repeat(using device: Device)
-              (initial: Context[A] = localContext(TEmpty[A]()), dom: Domain = Set(device))
+              (initial: Environment[A] = localEnv(TEmpty[A]()), dom: Domain = Set(device))
               (using domainChange: DomainChange)(using treeChange: TreeChange[A]): LazyList[Tree[A]] =
       LazyList.iterate((-1, initial)): (step, context) =>
-        val preCtx = restrict(context)(domainChange.applyOrElse(step + 1, _ => context.keySet))
-        val ctx = if preCtx.isEmpty then localContext(TEmpty[A]()) else preCtx
-        (step + 1, localContext(a.round(ctx)))
+        val preEnv = restrictEnv(context)(domainChange.applyOrElse(step + 1, _ => context.keySet))
+        val env = if preEnv.isEmpty then localEnv(TEmpty[A]()) else preEnv
+        (step + 1, localEnv(a.round(env)))
       .map(_._2).map(_(device)).drop(1)
 
-    def evalOne(using device: Device)(initial: Context[A] = localContext(TEmpty[A]()), dom: Domain = Set(device)): Tree[A] =
+    def evalOne(using device: Device)(initial: Environment[A] = localEnv(TEmpty[A]()), dom: Domain = Set(device)): Tree[A] =
       repeat(initial, dom)(0)
 
+
+  class DistributedSystem[A](aggregate: Aggregate[A], topology: Map[Device, Domain]):
+    var envs: Map[Device, Environment[A]] = topology.keySet.map(d => (d, Map(d -> TEmpty[A]()))).toMap
+    def fire(d: Device): Tree[A] =
+      val tree = aggregate.evalOne(using d)(envs(d), topology(d))
+      envs = topology(d).foldLeft(envs)((e, dd) => e + (dd -> (envs(dd) + (d -> tree))))
+      tree

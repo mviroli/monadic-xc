@@ -10,7 +10,7 @@ object Aggregates:
 
   enum AggregateAST[A]:
     case Val(a: () => NValue[A])
-    //case Self(a: Aggregate[A])
+    case Builtin(a: Aggregate[A], f: Device => Set[Device] => NValue[A] => NValue[A])
     case Call(f: Aggregate[() => Aggregate[A]])
     case Xc(a: Aggregate[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
 
@@ -31,8 +31,17 @@ object Aggregates:
     def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Contextual[Aggregate[A]] = retsend(compute(a))(x => f(self(x)))
     def self[A](a: NValue[A]): Contextual[NValue[A]] = NValue(local(a))
     def local[A](a: NValue[A]): Contextual[A] = a.get(summon[Device])
-    def fold[A](a: NValue[A])(init: A)(op: (A, A) => A): Contextual[A] = ???
+    def fold[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
+      CFree.liftM(Builtin(a, d => domain => nv => (domain - d).map(nv.get).foldLeft(init)(op)))
   export Semantics.*
+
+  /*
+    TODOs:
+    - address contextuality for fold
+    - use flatMap more thoroughly
+    - build mini-simulator
+   */
+
 
 
 

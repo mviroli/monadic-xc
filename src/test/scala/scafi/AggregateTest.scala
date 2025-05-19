@@ -79,39 +79,50 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ag = branch(agb)(counter(0))(100)
     ag.repeat().take(6).toList.map(_.top) shouldBe List(1.nv, 2.nv, 100.nv, 100.nv, 1.nv, 2.nv)
 
-  test("Interaction with a neighbour"):
-    val ag = exchange(0)(n => {val rs = for i <- n yield i + 1; (rs, rs)})
-    val d1 = newDevice()
-    val r1: Tree[Int] = ag.evalOne(using d1)(Map(d1 -> TEmpty()), Set(d1))
-    r1.top shouldBe 1.nv
-    val d2 = newDevice()
-    val r2: Tree[Int] = ag.evalOne(using d2)(Map(d2 -> TEmpty(), d1 -> r1), Set(d1, d2))
-    r2.top shouldBe NValue(1, Map(d1 -> 2))
-    val r2b = ag.evalOne(using d2)(Map(d2 -> r2, d1 -> r1), Set(d1, d2))
-    r2b.top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
-    ag.evalOne(using d2)(Map(d2 -> r2b, d1 -> r1), Set(d1, d2)).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 3))
+  test("Interaction with a neighbour, as a system"):
+    val ag = retsend(0)(for i <- _ yield i + 1)
+    val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
+    val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
+    ds.fire(d1).top shouldBe 1.nv
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 1))
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 3))
+    ds.fire(d1).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 3))
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 4, d2 -> 4))
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 4, d2 -> 5))
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 4, d2 -> 6))
+    ds.fire(d1).top shouldBe NValue(1, Map(d1 -> 3, d2 -> 5))
+    ds.fire(d3).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2, d3 -> 1))
+    ds.fire(d3).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2, d3 -> 2))
+    ds.fire(d1).top shouldBe NValue(1, Map(d1 -> 4, d2 -> 5, d3 -> 3))
 
   test("Interaction with a neighbour, branched"):
     import AggregateLib.branch
     var cond = false
-    def getCond = cond
     val agf = branch(compute(cond))(0):
       exchange(0):n =>
         val rs = for i <- n yield i + 1
         (rs, rs)
-    val d1 = newDevice()
-    val d2 = newDevice()
-    val r1: Tree[Int] = agf.evalOne(using d1)(Map(d1 -> TEmpty()), Set(d1))
-    r1.top shouldBe 1.nv
-    val r2: Tree[Int] = agf.evalOne(using d2)(Map(d2 -> TEmpty(), d1 -> r1), Set(d1, d2))
-    r2.top shouldBe NValue(1, Map(d1 -> 2))
-    val r2b = agf.evalOne(using d2)(Map(d2 -> r2, d1 -> r1), Set(d1, d2))
-    r2b.top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
-    cond = true
-    val r2c = agf.evalOne(using d2)(Map(d2 -> r2b, d1 -> r1), Set(d1, d2))
-    r2c.top shouldBe 0.nv
-    cond = false
-    val r1b = agf.evalOne(using d1)(Map(d2 -> r2c, d1 -> r1), Set(d1, d2))
-    r1b.top shouldBe NValue(1, Map(d1 -> 2))
-    val r2d = agf.evalOne(using d2)(Map(d2 -> r2c, d1 -> r1b), Set(d1, d2))
-    r2d.top shouldBe NValue(1, Map(d1 -> 2))
+    val (d1, d2) = (newDevice(), newDevice())
+    val ds = DistributedSystem[Int](agf, Map(d1 -> Set(d1, d2), d2 -> Set(d1, d2)))
+    ds.fire(d1).top shouldBe 1.nv
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 2))
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
+    cond = true // sensor change
+    ds.fire(d2).top shouldBe 0.nv
+    cond = false // sensor change
+    ds.fire(d1).top shouldBe NValue(1, Map(d1 -> 2))
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 2))
+    ds.fire(d2).top shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
+
+  test("Folding to get maximum neighbour fires"):
+    import AggregateLib.branch
+    val ag = fold[Int](0)(_ max _):
+      retsend(0)(for i <- _ yield i + 1)
+    val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
+    val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
+    ds.fire(d1).top shouldBe 0.nv
+    ds.fire(d2).top shouldBe 2.nv
+    ds.fire(d2).top shouldBe 2.nv
+    ds.fire(d1).top shouldBe 3.nv
+    ds.fire(d2).top shouldBe 4.nv

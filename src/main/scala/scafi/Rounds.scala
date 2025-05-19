@@ -8,18 +8,16 @@ object Rounds:
   import Aggregates.{*, given}
 
   enum Tree[+A]:
-    case TRep(res: NValue[A], nest: Tree[A])
     case TVal(res: NValue[A])
-    case TSelf(res: NValue[A], nest: Tree[A])
+    case TBuiltin(res: NValue[A], nest: Tree[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
     case TCall(fun: Tree[() => Aggregate[Any]], nest: Tree[A])
     case TXc(init: Tree[A], ret: Tree[A], send: Tree[A])
     case TEmpty()
 
     def top: NValue[A] = this match
-      case TRep(a, _) => a
       case TVal(a) => a
-      case TSelf(a, _) => a
+      case TBuiltin(a, _) => a
       case TNext(_, r) => r.top
       case TCall(_, n) => n.top
       case TXc(_, ret, _) => ret.top
@@ -27,12 +25,12 @@ object Rounds:
   export Tree.*
 
   object Contexts:
-    type Context[A] = Map[Device, Tree[A]]
-    def localContext[A](using Device)(t: Tree[A]): Context[A] = Map(summon[Device] -> t)
-    def restrict[A](c: Context[A])(domain: Domain): Context[A] = c.filter((d, _) => domain.contains(d))
+    type Environment[A] = Map[Device, Tree[A]]
+    def localEnv[A](using Device)(t: Tree[A]): Environment[A] = Map(summon[Device] -> t)
+    def restrictEnv[A](c: Environment[A])(domain: Domain): Environment[A] = c.filter((d, _) => domain.contains(d))
 
-    extension [A, W](c: Context[A])
-      def enter[B: ClassTag](f: B => Any, p: B => Boolean = (b: B) => true): Context[W] =
+    extension [A, W](c: Environment[A])
+      def enter[B: ClassTag](f: B => Any, p: B => Boolean = (b: B) => true): Environment[W] =
         c.collectValues:
           case v: B if p(v) => f(v).asInstanceOf[Tree[W]]
 
@@ -42,5 +40,5 @@ object Rounds:
           case device -> v if pf.isDefinedAt(v) => device -> pf(v)
 
   export Contexts.*
-  type Round[A] = Device ?=> Context[A] => Tree[A]
+  type Round[A] = Device ?=> Environment[A] => Tree[A]
 
