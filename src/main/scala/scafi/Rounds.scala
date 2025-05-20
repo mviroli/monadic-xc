@@ -12,7 +12,7 @@ object Rounds:
     case TBuiltin(res: NValue[A], nest: Tree[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
     case TCall(fun: Tree[() => Aggregate[Any]], nest: Tree[A])
-    case TXc(init: Tree[A], ret: Tree[A], send: Tree[A])
+    case TXc(ret: Tree[A], send: Tree[A])
     case TEmpty()
 
     def top: NValue[A] = this match
@@ -20,7 +20,7 @@ object Rounds:
       case TBuiltin(a, _) => a
       case TNext(_, r) => r.top
       case TCall(_, n) => n.top
-      case TXc(_, ret, _) => ret.top
+      case TXc(ret, _) => ret.top
 
   export Tree.*
 

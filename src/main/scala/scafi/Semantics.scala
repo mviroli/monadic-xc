@@ -29,10 +29,10 @@ object Semantics:
         val nest2 = env.enter[TCall[A]](_.nest, n => local(n.fun.top) == local(fun2.top))
         TCall(fun2.asInstanceOf[Tree[() => Aggregate[Any]]], fun2.top.get(summon[Device])().round(nest2))
       case Xc(a, f) => env =>
-        val init2 = a.round(env.enter[TXc[A]](_.init))
-        val l = local(init2.top)
+        //val init2 = a.round(env.enter[TXc[A]](_.init))
+        val l = local(a)
         val w = NValue(l, env.enter[TXc[A]](_.send).collectValues[A] { case tree: Tree[A] => local(tree.top) })
         val ret2 = f(w)._1.round(env.enter[TXc[A]](_.ret))
         val send2 = f(w)._2.round(env.enter[TXc[A]](_.send))
-        TXc(init2, ret2, send2)
+        TXc(ret2, send2)
 
