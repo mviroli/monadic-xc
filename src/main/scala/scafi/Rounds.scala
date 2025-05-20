@@ -9,7 +9,7 @@ object Rounds:
 
   enum Tree[+A]:
     case TVal(res: NValue[A])
-    case TBuiltin(res: NValue[A], nest: Tree[A])
+    case TBuiltin(res: NValue[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
     case TCall(fun: NValue[() => Aggregate[Any]], nest: Tree[A])
     case TXc(ret: Tree[A], send: Tree[A])
@@ -17,7 +17,7 @@ object Rounds:
 
     def top: NValue[A] = this match
       case TVal(a) => a
-      case TBuiltin(a, _) => a
+      case TBuiltin(a) => a
       case TNext(_, r) => r.top
       case TCall(_, n) => n.top
       case TXc(ret, _) => ret.top

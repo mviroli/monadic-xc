@@ -10,7 +10,7 @@ object Aggregates:
 
   enum AggregateAST[A]:
     case Val(a: () => NValue[A])
-    case Builtin(a: Aggregate[A], f: Device => Set[Device] => NValue[A] => NValue[A])
+    case Builtin(a: NValue[A], f: Device => Set[Device] => NValue[A] => NValue[A])
     case Call(f: NValue[() => Aggregate[A]])
     case Xc(a: NValue[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
 
@@ -32,7 +32,7 @@ object Aggregates:
     def self[A](a: NValue[A]): Contextual[NValue[A]] = NValue(local(a))
     def local[A](a: NValue[A]): Contextual[A] = a.get(summon[Device])
     def fold[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
-      CFree.liftM(Builtin(a, d => domain => nv => (domain - d).map(nv.get).foldLeft(init)(op)))
+      a.flatMap(v => CFree.liftM(Builtin(v, d => domain => nv => (domain - d).map(nv.get).foldLeft(init)(op))))
   export Semantics.*
 
   /*

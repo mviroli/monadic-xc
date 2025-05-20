@@ -22,13 +22,11 @@ object Semantics:
     override def apply[A] =
       case Val(a) => _ => TVal(a())
       case Builtin(a, f) => env =>
-        val nest = a.round(env.enter[TBuiltin[A]](_.nest))
-        TBuiltin(f(summon[Device])(env.keySet)(nest.top), nest)
+        TBuiltin(f(summon[Device])(env.keySet)(a))
       case Call(vf) => env =>
         val nest2 = env.enter[TCall[A]](_.nest, n => local(n.fun) == local(vf))
         TCall(vf.asInstanceOf[NValue[() => Aggregate[Any]]], vf.get(summon[Device])().round(nest2))
       case Xc(a, f) => env =>
-        //val init2 = a.round(env.enter[TXc[A]](_.init))
         val l = local(a)
         val w = NValue(l, env.enter[TXc[A]](_.send).collectValues[A] { case tree: Tree[A] => local(tree.top) })
         val ret2 = f(w)._1.round(env.enter[TXc[A]](_.ret))
