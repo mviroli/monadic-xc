@@ -11,7 +11,7 @@ object Rounds:
     case TVal(res: NValue[A])
     case TBuiltin(res: NValue[A], nest: Tree[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
-    case TCall(fun: Tree[() => Aggregate[Any]], nest: Tree[A])
+    case TCall(fun: NValue[() => Aggregate[Any]], nest: Tree[A])
     case TXc(ret: Tree[A], send: Tree[A])
     case TEmpty()
 

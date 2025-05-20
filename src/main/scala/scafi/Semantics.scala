@@ -24,10 +24,9 @@ object Semantics:
       case Builtin(a, f) => env =>
         val nest = a.round(env.enter[TBuiltin[A]](_.nest))
         TBuiltin(f(summon[Device])(env.keySet)(nest.top), nest)
-      case Call(f) => env =>
-        val fun2 = f.round(env.enter[TCall[A]](_.fun))
-        val nest2 = env.enter[TCall[A]](_.nest, n => local(n.fun.top) == local(fun2.top))
-        TCall(fun2.asInstanceOf[Tree[() => Aggregate[Any]]], fun2.top.get(summon[Device])().round(nest2))
+      case Call(vf) => env =>
+        val nest2 = env.enter[TCall[A]](_.nest, n => local(n.fun) == local(vf))
+        TCall(vf.asInstanceOf[NValue[() => Aggregate[Any]]], vf.get(summon[Device])().round(nest2))
       case Xc(a, f) => env =>
         //val init2 = a.round(env.enter[TXc[A]](_.init))
         val l = local(a)

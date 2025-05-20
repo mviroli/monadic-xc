@@ -11,7 +11,7 @@ object Aggregates:
   enum AggregateAST[A]:
     case Val(a: () => NValue[A])
     case Builtin(a: Aggregate[A], f: Device => Set[Device] => NValue[A] => NValue[A])
-    case Call(f: Aggregate[() => Aggregate[A]])
+    case Call(f: NValue[() => Aggregate[A]])
     case Xc(a: NValue[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
 
   import AggregateAST.*
@@ -24,12 +24,8 @@ object Aggregates:
     given [A]: Conversion[NValue[A], Aggregate[A]] = compute
 
     def compute[A](a: =>NValue[A]): Aggregate[A] = CFree.liftM(Val(() => a))
-    def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = CFree.liftM(Call(f))
-    def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] =
-      for
-        v <- a
-        e <- CFree.liftM(Xc(v, f))
-      yield e
+    def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = f.flatMap(v => CFree.liftM(Call(v)))
+    def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = a.flatMap(v => CFree.liftM(Xc(v, f)))
     def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = exchange(a)(v => (f(v), f(v)))
 
     def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Contextual[Aggregate[A]] = retsend(compute(a))(x => f(self(x)))
