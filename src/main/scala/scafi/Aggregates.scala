@@ -30,9 +30,9 @@ object Aggregates:
 
     def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Contextual[Aggregate[A]] = retsend(compute(a))(x => f(self(x)))
     def self[A](a: NValue[A]): Contextual[NValue[A]] = NValue(local(a))
-    def local[A](a: NValue[A]): Contextual[A] = a.get(summon[Device])
+    def local[A](a: NValue[A]): Contextual[A] = a.concrete.get(summon[Device])
     def fold[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
-      a.flatMap(v => CFree.liftM(Builtin(v, d => domain => nv => (domain - d).map(nv.get).foldLeft(init)(op))))
+      a.flatMap(v => CFree.liftM(Builtin(v, d => domain => nv => (domain - d).map(nv.concrete.get).foldLeft(init)(op))))
   export Semantics.*
 
   /*

@@ -7,7 +7,7 @@ object Rounds:
   import NValues.{*, given}
   import Aggregates.{*, given}
 
-  enum Tree[+A]:
+  enum Tree[A]:
     case TVal(res: NValue[A])
     case TBuiltin(res: NValue[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]

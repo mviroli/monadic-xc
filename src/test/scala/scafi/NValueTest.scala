@@ -10,13 +10,13 @@ class NValueTest extends org.scalatest.funsuite.AnyFunSuite:
   val devs: Seq[Device] = Seq(selfDevice, Devices.newDevice(), Devices.newDevice(), Devices.newDevice())
   given [A]: Conversion[(Int, A), (Device, A)] = is => (devs(is._1), is._2)
   given Conversion[Int, Device] = devs.apply
-  //given Device = selfDevice
+  given [A]: Conversion[NValue[A], NValueAST[A]] = concrete
 
   test("toString"):
     val v: NValue[Int] = 5
-    v.toString shouldBe "5[]"
-    NValue("z", Map(0 -> "a", 1 -> "b")).toString shouldBe "z[0 -> a, 1 -> b]"
-    ("z" |> (0 -> "a", 1 -> "b")).toString shouldBe "z[0 -> a, 1 -> b]"
+    v.concrete.toString shouldBe "5[]"
+    NValue("z", Map(0 -> "a", 1 -> "b")).concrete.toString shouldBe "z[0 -> a, 1 -> b]"
+    ("z" |> (0 -> "a", 1 -> "b")).concrete.toString shouldBe "z[0 -> a, 1 -> b]"
 
   test("get"):
     NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).get(0) shouldBe "a"

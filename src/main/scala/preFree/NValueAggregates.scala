@@ -29,7 +29,7 @@ object NValueAggregates:
     //def call[A <: NValue[Any]](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = Free.liftM(Call(f))
     def call[A](f: Aggregate[() => Aggregate[NValue[A]]]): Aggregate[NValue[A]] = Free.liftM(Call(f))
 
-    def rand: Aggregate[NValue[Int]] = rep(0)(n => n)
+    //def rand: Aggregate[NValue[Int]] = rep(0)(n => n)
 
   object Executor:
     import NValueAggregates.*

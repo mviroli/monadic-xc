@@ -13,7 +13,7 @@ object Semantics:
     def flatMap[A, B](ma: Round[A])(f: NValue[A] => Round[B]): Round[B] = env =>
       val left2 = ma(env.enter[TNext[Any]](_.left))
       val right2 = f(left2.top)(env.enter[TNext[B]](_.right))
-      TNext(left2, right2)
+      TNext(left2.asInstanceOf[Tree[Any]], right2)
 
   extension [A](ag: Aggregate[A])
     def round: Round[A] = ag.foldMap(compiler)
@@ -25,7 +25,7 @@ object Semantics:
         TBuiltin(f(summon[Device])(env.keySet)(a))
       case Call(vf) => env =>
         val nest2 = env.enter[TCall[A]](_.nest, n => local(n.fun) == local(vf))
-        TCall(vf.asInstanceOf[NValue[() => Aggregate[Any]]], vf.get(summon[Device])().round(nest2))
+        TCall(vf.asInstanceOf[NValue[() => Aggregate[Any]]], vf.concrete.get(summon[Device])().round(nest2.asInstanceOf[Environment[A]]))
       case Xc(a, f) => env =>
         val l = local(a)
         val w = NValue(l, env.enter[TXc[A]](_.send).collectValues[A] { case tree: Tree[A] => local(tree.top) })
