@@ -24,8 +24,8 @@ class NValueTest extends org.scalatest.funsuite.AnyFunSuite:
     NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).get(2) shouldBe "c"
     NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).get(3) shouldBe "z"
 
-  test("restrict"):
-    NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).restrict(Set(1)) shouldBe NValue("z", Map(1 -> "b"))
+  //test("restrict"):
+  //  NValue("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).restrict(Set(1)) shouldBe NValue("z", Map(1 -> "b"))
 
   test("flatMapping"):
     val nv = NValue(5, Map(0 -> 10, 1 -> 11)).flatMap: x =>
@@ -52,9 +52,9 @@ class NValueTest extends org.scalatest.funsuite.AnyFunSuite:
         NValue(6, Map(0 -> 100, 2 -> 200)).map(y => x + y)
     v shouldBe NValue(11, Map(0 -> 110, 1 -> 17, 2 -> 205))
 
-  test("composition2"):
-    val v1 = NValue(5, Map(0 -> 10, 1 -> 11))
-    val v2 = NValue(6, Map(0 -> 100, 2 -> 200))
-    v1.map2(v2)(_ + _) shouldBe NValue(11, Map(0 -> 110, 1 -> 17, 2 -> 205))
+  //test("composition2"):
+  //  val v1 = NValue(5, Map(0 -> 10, 1 -> 11))
+  //  val v2 = NValue(6, Map(0 -> 100, 2 -> 200))
+  //  v1.map2(v2)(_ + _) shouldBe NValue(11, Map(0 -> 110, 1 -> 17, 2 -> 205))
 
 

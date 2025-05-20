@@ -2,7 +2,7 @@ package scafi
 
 object NValues:
 
-  import Devices.{*, given}
+  import Devices.*
   import NValue.given
   export NValue.*
 
@@ -13,10 +13,9 @@ object NValues:
     def map[B](f: A => B): NValue[B] = NValue(f(this.a), map.map((k, v) => (k, f(v))))
     def get(d: Device): A = map.getOrElse(d, a)
     //def self: A = get(selfDevice)
-    def restrict(dom: Domain): NValue[A] = NValue(a, map.filter((k, _) => dom.contains(k)))
-    def cut(dom: Domain): NValue[A] = NValue(a, map.filterNot((k, _) => dom.contains(k)))
-    def map2[B, C](other: NValue[B])(f: (A, B) => C): NValue[C] =
-      NValue(f(this.a, other.a), (this.map.keySet ++ other.map.keySet).map(k => (k, f(this.get(k),other.get(k)))).toMap)
+    //def restrict(dom: Domain): NValue[A] = NValue(a, map.filter((k, _) => dom.contains(k)))
+    //def map2[B, C](other: NValue[B])(f: (A, B) => C): NValue[C] =
+    //  NValue(f(this.a, other.a), (this.map.keySet ++ other.map.keySet).map(k => (k, f(this.get(k),other.get(k)))).toMap)
 
   object NValue:
     given g[A]: Conversion[A, NValue[A]] = NValue(_, Map.empty)
