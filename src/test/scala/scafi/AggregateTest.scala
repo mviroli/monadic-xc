@@ -4,6 +4,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import scafi.AggregateTestUtilities.{*, given}
 import scafi.Aggregates.{*, given}
+import NValues.NValueInternal.*
 
 class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
   import Tree.*
