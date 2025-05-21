@@ -6,8 +6,7 @@ object NValues:
   export NValue.{given, *}
   import FreeMonads.*
 
-  trait NValueAST[+A]
-  case class NValueConcrete[+A](a: A, map: Map[Device, A]) extends NValueAST[A]:
+  case class NValueConcrete[+A](a: A, map: Map[Device, A]):
     override def toString: String = a.toString + "[" + map.mkString(", ") + "]"
     def flatMap[B](f: A => NValueConcrete[B]): NValueConcrete[B] =
       NValueConcrete(f(a).a, (map.keySet ++ f(a).map.keySet).map(k => (k, f(this.get(k)).get(k))).toMap)
@@ -16,19 +15,31 @@ object NValues:
 
   object NValueConcrete:
     def apply[A](a: A, map: Map[Device, A]): NValueConcrete[A] = new NValueConcrete(a, map.filterNot((_, v) => v == a))
+    extension [A](a: A) def |>(e: (Device, A)*): NValueConcrete[A] = apply(a, e.toMap)
 
-  type NValue[A] = Free[NValueConcrete, A]
+  enum NValueAST[A]:
+    case Concrete(nvc: NValueConcrete[A])
+    case Self(nv: NValue[A])
+  import NValueAST.*
+
+  type NValue[A] = Free[NValueAST, A]
 
   object NValue:
     given g[A]: Conversion[A, NValue[A]] = apply(_)
     extension [A](a: A) def nv: NValue[A] = g(a)
-    def apply[A](a: A): NValue[A] = Free.Pure(a)
-    def apply[A](a: A, map: Map[Device, A]): NValue[A] = Free.liftM(NValueConcrete(a, map))
-    extension [A](a: A) def |>(e: (Device, A)*): NValue[A] = apply(a, e.toMap)
-
+    def apply[A](a: A): NValue[A] = Free.liftM(Concrete(NValueConcrete(a, Map.empty)))
+    private[scafi] def fromConcrete[A](nvc: NValueConcrete[A]): NValue[A] = Free.liftM(Concrete(nvc))
+    private[scafi] def apply[A](a: A, map: Map[Device, A]): NValue[A] = Free.liftM(Concrete(NValueConcrete(a, map)))
+    def self[A](a: NValue[A]): NValue[A] = Free.liftM(Self(a))
+    def local[A](a: NValue[A]): A = self(a).defaultValue
     extension [A](nv: NValue[A])
-      def get(d: Device): A = nv.concrete.get(d)
-      def concrete: NValueConcrete[A] = nv match
+      def defaultValue: A = nv match
+        case Free.Suspend(Concrete(NValueConcrete(a, _))) => a
+        case Free.Suspend(Self(nv)) => nv.defaultValue
+        case Free.FlatMap(nv, f) => nv.flatMap(x => f(x)).defaultValue // HERE'S THE LOOP!
+      private[scafi] def localValue(using Device): A = concrete.get(summon[Device])
+      private[scafi] def concrete(using Device): NValueConcrete[A] = nv match
         case Free.Pure(a) => NValueConcrete(a, Map.empty)
-        case Free.Suspend(ma) => ma
+        case Free.Suspend(Concrete(nvc)) => nvc
+        case Free.Suspend(Self(nv)) => NValueConcrete(nv.concrete.get(summon[Device]), Map.empty)
         case Free.FlatMap(nv, f) => nv.concrete.flatMap(x => f(x).concrete)

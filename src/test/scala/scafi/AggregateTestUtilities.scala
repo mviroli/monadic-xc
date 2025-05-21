@@ -24,7 +24,8 @@ object AggregateTestUtilities:
       .map(_._2).map(_(device)).drop(1)
 
     def evalOne(using device: Device)(initial: Environment[A] = localEnv(TEmpty[A]()), dom: Domain = Set(device)): Tree[A] =
-      repeat(initial, dom)(0)
+      a.round(initial)
+      //repeat(initial, dom)(0)
 
 
   class DistributedSystem[A](aggregate: Aggregate[A], topology: Map[Device, Domain]):

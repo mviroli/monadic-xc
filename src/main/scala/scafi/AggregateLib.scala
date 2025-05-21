@@ -8,7 +8,7 @@ object AggregateLib:
       cond <- b
       t <- th
       e <- el
-    yield if local(cond) then t else e
+    yield if self(cond).defaultValue then t else e
 
 
   def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A])(using Device): Aggregate[A] =

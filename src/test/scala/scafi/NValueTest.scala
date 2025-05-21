@@ -3,6 +3,7 @@ package scafi
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import NValues.{*, given}
+import NValueConcrete.*
 import Devices.{*, given}
 
 class NValueConcreteTest extends org.scalatest.funsuite.AnyFunSuite:
@@ -16,7 +17,7 @@ class NValueConcreteTest extends org.scalatest.funsuite.AnyFunSuite:
     val v: NValueConcrete[Int] = 5
     v.toString shouldBe "5[]"
     NValueConcrete("z", Map(0 -> "a", 1 -> "b")).toString shouldBe "z[0 -> a, 1 -> b]"
-    ("z" |> (0 -> "a", 1 -> "b")).concrete.toString shouldBe "z[0 -> a, 1 -> b]"
+    ("z" |> (0 -> "a", 1 -> "b")).toString shouldBe "z[0 -> a, 1 -> b]"
 
   test("get"):
     NValueConcrete("z", Map(0 -> "a", 1 -> "b", 2 -> "c")).get(0) shouldBe "a"

@@ -10,6 +10,26 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
   def counter(initial: Int) = rep(initial)(for i <- _ yield i + 1)
   given Device = selfDevice
 
+  test("constant"):
+    val ag: Aggregate[Int] = 5
+    ag.repeat().take(4).map(_.top.concrete) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+
+  test("operation on value"):
+    val nv: NValue[Int] = 4
+    val ag: Aggregate[Int] = for n <- nv yield n + 1
+    ag.repeat().take(4).map(_.top.concrete) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+
+  test("operation on constant"):
+    val nv: NValue[Int] = 4
+    val ag1: Aggregate[Int] = nv
+    val ag: Aggregate[Int] = for n <- ag1 yield for v <- n yield v + 1
+    ag.repeat().take(4).map(_.top.concrete) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+
+  test("self on dummy nvalue"):
+    val nv: NValue[Int] = 5
+    val ag: Aggregate[Int] = self(nv)
+    ag.repeat().take(4).map(_.top.concrete) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+
   test("Trees of a constant rep"):
     val ag: Aggregate[Int] = rep(5)(identity)
     ag.repeat().take(4).map(_.top.concrete) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)

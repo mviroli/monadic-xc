@@ -22,20 +22,33 @@ object Semantics:
   private def compiler: AggregateAST ~~> Round = new(AggregateAST ~~> Round):
     override def apply[A] =
       case Val(a) => _ => TVal(a())
-      case Builtin(a, f) => env =>
-        TBuiltin(f(summon[Device])(env.keySet)(a))
+      //case Builtin(a, f) => env =>
+      //  TBuiltin(f(summon[Device])(env.keySet)(a))
       case Call(vf) => env =>
         val nest2 = env.enter[TCall[A]](_.nest, n => local(n.fun) == local(vf))
-        TCall(vf.asInstanceOf[NValue[() => Aggregate[Any]]], vf.get(summon[Device])().round(nest2.asInstanceOf[Environment[A]]))
+        val body = env.localInterpreted(vf)()
+        TCall(vf.asInstanceOf[NValue[() => Aggregate[Any]]], body.round(nest2.asInstanceOf[Environment[A]]))
       case Xc(a, f) => env =>
-        val l = local(a)
-        val w = NValue(l, env.enter[TXc[A]](_.send).collectValues[A] { case tree: Tree[A] => local(tree.top) })
+        val l = localValue(a)
+        val w = NValue(l, env.enter[TXc[A]](_.send).collectValues[A] { case tree: Tree[A] => localValue(tree.top) })
         val ret2 = f(w)._1.round(env.enter[TXc[A]](_.ret))
         val send2 = f(w)._2.round(env.enter[TXc[A]](_.send))
         TXc(ret2, send2)
 
   given Monad[RoundNV] with
-    def pure[A](a: A): RoundNV[A] = _ => NValue(a)
+    def pure[A](a: A): RoundNV[A] = _ => NValueConcrete(a, Map.empty)
     def flatMap[A, B](ma: RoundNV[A])(f: A => RoundNV[B]): RoundNV[B] = dev ?=> env =>
       ma(using dev)(env).flatMap(a => f(a)(using dev)(env))
 
+  import NValueAST.*
+
+  extension [B](env: Environment[B])
+    private[scafi] def localInterpreted[A](nv: NValue[A])(using Device): A =
+      val rnv = nv.foldMap(compilerNV)
+      val cnv = rnv(env.asInstanceOf[Environment[Any]])
+      cnv.get(summon[Device])
+
+  private def compilerNV: NValueAST ~> RoundNV = new (NValueAST ~> RoundNV):
+    override def apply[A](nast: NValueAST[A]): RoundNV[A] = nast match
+      case Concrete(c) => env => c
+      case Self(nv) => env => NValueConcrete(env.localInterpreted(nv), Map.empty)

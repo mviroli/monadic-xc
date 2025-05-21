@@ -41,5 +41,5 @@ object Rounds:
 
   export Contexts.*
   type Round[A] = Device ?=> Environment[A] => Tree[A]
-  type RoundNV[A] = Device ?=> Environment[Any] => NValue[A]
+  type RoundNV[A] = Device ?=> Environment[Any] => NValueConcrete[A]
 
