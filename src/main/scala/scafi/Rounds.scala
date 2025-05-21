@@ -8,14 +8,14 @@ object Rounds:
   import Aggregates.{*, given}
 
   enum Tree[A]:
-    case TVal(res: NValue[A])
-    case TBuiltin(res: NValue[A])
+    case TVal(res: NValueConcrete[A])
+    case TBuiltin(res: NValueConcrete[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
-    case TCall(fun: NValue[() => Aggregate[Any]], nest: Tree[A])
+    case TCall(fun: NValueConcrete[() => Aggregate[Any]], nest: Tree[A])
     case TXc(ret: Tree[A], send: Tree[A])
     case TEmpty()
 
-    def top: NValue[A] = this match
+    def top: NValueConcrete[A] = this match
       case TVal(a) => a
       case TBuiltin(a) => a
       case TNext(_, r) => r.top

@@ -21,6 +21,7 @@ object NValues:
   enum NValueAST[A]:
     case Concrete(nvc: NValueConcrete[A])
     case Self(nv: NValue[A])
+    case Builtin(a: NValue[A], f: Device => Set[Device] => NValue[A] => NValue[A])
   import NValueAST.*
 
   type NValue[A] = Free[NValueAST, A]
@@ -31,22 +32,22 @@ object NValues:
     extension [A](a: A) def nv: NValue[A] = g(a)
     def apply[A](a: A): NValue[A] = Free.liftM(Concrete(NValueConcrete(a, Map.empty)))
     def self[A](a: NValue[A]): NValue[A] = Free.liftM(Self(a))
-    extension [A](nv: NValue[A])
-      def localValue(using Device): A = nv.concrete.get(summon[Device])
+    def fold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A] =
+      Free.liftM(
+        Builtin(a, d => domain => nv => (domain - d).map(nv.concrete(using d)(using domain).get).foldLeft(init)(op).nv))
+
+  //extension [A](nv: NValue[A])
+    //  def localValue(using Device): A = nv.concrete.get(summon[Device])
 
   private[scafi] object NValueInternal:
     def fromConcrete[A](nvc: NValueConcrete[A]): NValue[A] = Free.liftM(Concrete(nvc))
     def apply[A](a: A, map: Map[Device, A]): NValue[A] = Free.liftM(Concrete(NValueConcrete(a, map)))
-    def local[A](a: NValue[A]): A = self(a).defaultValue
+    def localValue[A](nv: NValue[A])(using Device)(using Set[Device]): A = nv.concrete.get(summon[Device])
     extension [A](nv: NValue[A])
-      def defaultValue: A = nv match
-        case Free.Pure(a) => a
-        case Free.Suspend(Concrete(NValueConcrete(a, _))) => a
-        case Free.Suspend(Self(nv)) => nv.defaultValue
-        case Free.FlatMap(nv, f) => f(nv.defaultValue).defaultValue // HERE'S THE LOOP!
-      def localValue(using Device): A = concrete.get(summon[Device])
-      def concrete(using Device): NValueConcrete[A] = nv match
+      def defaultValue(using Device)(using Set[Device]): A = nv.concrete.a
+      def concrete(using d: Device)(using sd: Set[Device]): NValueConcrete[A] = nv match
         case Free.Pure(a) => NValueConcrete(a)
         case Free.Suspend(Concrete(nvc)) => nvc
         case Free.Suspend(Self(nv)) => NValueConcrete(nv.concrete.get(summon[Device]))
+        case Free.Suspend(Builtin(nv, f)) => f(d)(sd)(nv).concrete
         case Free.FlatMap(nv, f) => nv.concrete.flatMap(x => f(x).concrete)

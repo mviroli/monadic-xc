@@ -6,9 +6,10 @@ object AggregateLib:
   def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A])(using Device): Aggregate[A] =
     for
       cond <- b
+      localCondition <- compute(self(cond))
       t <- th
       e <- el
-    yield if self(cond) == true.nv then t else e
+    yield if localCondition == true.nv then t else e
 
 
   def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A])(using Device): Aggregate[A] =
