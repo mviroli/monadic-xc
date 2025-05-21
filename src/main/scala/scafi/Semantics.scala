@@ -4,6 +4,7 @@ object Semantics:
   import Aggregates.*
   import AggregateAST.*
   import CFreeMonads.*
+  import FreeMonads.*
 
   export Rounds.*
 
@@ -25,11 +26,16 @@ object Semantics:
         TBuiltin(f(summon[Device])(env.keySet)(a))
       case Call(vf) => env =>
         val nest2 = env.enter[TCall[A]](_.nest, n => local(n.fun) == local(vf))
-        TCall(vf.asInstanceOf[NValue[() => Aggregate[Any]]], vf.concrete.get(summon[Device])().round(nest2.asInstanceOf[Environment[A]]))
+        TCall(vf.asInstanceOf[NValue[() => Aggregate[Any]]], vf.get(summon[Device])().round(nest2.asInstanceOf[Environment[A]]))
       case Xc(a, f) => env =>
         val l = local(a)
         val w = NValue(l, env.enter[TXc[A]](_.send).collectValues[A] { case tree: Tree[A] => local(tree.top) })
         val ret2 = f(w)._1.round(env.enter[TXc[A]](_.ret))
         val send2 = f(w)._2.round(env.enter[TXc[A]](_.send))
         TXc(ret2, send2)
+
+  given Monad[RoundNV] with
+    def pure[A](a: A): RoundNV[A] = _ => NValue(a)
+    def flatMap[A, B](ma: RoundNV[A])(f: A => RoundNV[B]): RoundNV[B] = dev ?=> env =>
+      ma(using dev)(env).flatMap(a => f(a)(using dev)(env))
 
