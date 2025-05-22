@@ -12,65 +12,74 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
   given Device = selfDevice
   given Set[Device] = Set(selfDevice)
   
-  test("constant"):
+  test("value"):
     val ag: Aggregate[Int] = 5
-    ag.repeat().take(4).map(_.top) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
+
+  test("nvalue"):
+    val nv: NValue[Int] = 5
+    val ag: Aggregate[Int] = nv
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("operation on value"):
     val nv: NValue[Int] = 4
     val ag: Aggregate[Int] = for n <- nv yield n + 1
-    ag.repeat().take(4).map(_.top) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("operation on constant"):
     val nv: NValue[Int] = 4
     val ag1: Aggregate[Int] = nv
     val ag: Aggregate[Int] = for n <- ag1 yield for v <- n yield v + 1
-    ag.repeat().take(4).map(_.top) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("self on dummy nvalue"):
+    // available only internally
     val nv: NValue[Int] = fromConcrete(NValueConcrete(5, Map(newDevice() -> 4)))
-    val ag: Aggregate[Int] = self(nv)
-    ag.repeat().take(4).map(_.top) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+    val ag: Aggregate[Int] = nself(nv)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
-  test("Trees of a constant rep"):
+  test("Constant rep"):
     val ag: Aggregate[Int] = rep(5)(identity)
-    ag.repeat().take(4).map(_.top) shouldBe List(5.concrete, 5.concrete, 5.concrete, 5.concrete)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
-  test("Trees of a counter"):
+  test("Counter"):
+    // rep(5)(n => n + 1)
     val ag = rep(5)(n => for i <- n yield i + 1)
-    ag.repeat().take(3).map(_.top) shouldBe List(6.concrete, 7.concrete, 8.concrete)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(6, 7, 8, 9)
 
-  test("Trees of a counter, with restart"):
+  test("Counter, with restart"):
     withDomainChange({case 3 | 4 | 5 => Set()}):
       val ag = rep(5)(n => for i <- n yield i + 1)
-      ag.repeat().take(8).map(_.top) shouldBe List(6.concrete, 7.concrete, 8.concrete, 6.concrete, 6.concrete, 6.concrete, 7.concrete, 8.concrete)
+      ag.repeat().take(8).map(_.top.asValue) shouldBe List(6, 7, 8, 6, 6, 6, 7, 8)
 
-  test("Trees of a nested counter"):
-    rep(0): n =>
+  test("Nested counter"):
+    // rep(0)(n => rep(1)(identity) + n)
+    val ag = rep(0): n =>
       for
         c <- rep(1)(identity)
         vc <- c
         vn <- n
       yield vn + vc
-    .repeat().take(3).map(_.top) shouldBe Seq(1.concrete, 2.concrete, 3.concrete)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 2, 3, 4)
 
-  test("Trees of a call to a non-aggregate program"):
-    val f: () => Aggregate[Int] = () => 1.nv
-    call(f).repeat().take(3).map(_.top) shouldBe Seq(1.concrete, 1.concrete, 1.concrete)
-
-  test("Trees of a call to an aggregate program"):
-    val f:() => Aggregate[Int] = () => counter(0)
-    call(f).repeat().take(3).map(_.top) shouldBe Seq(1.concrete, 2.concrete, 3.concrete)
-
-  test("Trees of a rep used to compute a boolean"):
+  test("Elaborating on a rep")
     val ag = for
       c <- counter(0)
     yield for
       vc <- c
     yield vc < 3
-    ag.repeat().take(6).map(_.top) shouldBe Seq(true.concrete, true.concrete, false.concrete, false.concrete, false.concrete, false.concrete)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(true, true, false, false)
 
-  test("Results of muxing with a rep"):
+  test("Call to a non-aggregate program"):
+    val f: () => Aggregate[Int] = () => 5
+    val ag = call(f)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
+
+  test("Call to an aggregate program"):
+    val ag = call(() => counter(0))
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 2, 3, 4)
+
+  test("Muxing by a rep"):
     import AggregateLib.mux
     val agb: Aggregate[Boolean] = for
       c <- counter(0)
@@ -78,9 +87,9 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       vc <- c
     yield vc < 3
     val ag = mux(agb)(1)(2)
-    ag.repeat().take(4).toList.map(_.top) shouldBe List(1.concrete, 1.concrete, 2.concrete, 2.concrete)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 1, 2, 2)
 
-  test("Results of muxing a counter with a rep"):
+  test("Muxing with restart"):
     import AggregateLib.mux
     val agb = for
       c <- counter(0)
@@ -88,10 +97,9 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       vc <- c
     yield vc < 3 || vc > 4
     val ag = mux(agb)(counter(0))(100)
-    // could also test a match
-    ag.repeat().take(6).toList.map(_.top) shouldBe List(1.concrete, 2.concrete, 100.concrete, 100.concrete, 5.concrete, 6.concrete)
+    ag.repeat().take(6).map(_.top.asValue) shouldBe List(1, 2, 100, 100, 5, 6)
 
-  test("Results of branching a counter with a rep"):
+  test("Branching with restart"):
     import AggregateLib.branch
     val agb = for
       c <- counter(0)
@@ -99,13 +107,13 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       vc <- c
     yield vc < 3 || vc > 4
     val ag = branch(agb)(counter(0))(100)
-    ag.repeat().take(6).toList.map(_.top) shouldBe List(1.concrete, 2.concrete, 100.concrete, 100.concrete, 1.concrete, 2.concrete)
+    ag.repeat().take(6).map(_.top.asValue) shouldBe List(1, 2, 100, 100, 1, 2)
 
-  test("Interaction with a neighbour, as a system"):
+  test("Ping-pong"):
     val ag = retsend(0)(for i <- _ yield i + 1)
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
     val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
-    ds.fire(d1).top shouldBe 1.concrete
+    ds.fire(d1).top.asValue shouldBe 1
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 1))
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2))
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 3))
@@ -118,36 +126,32 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ds.fire(d3).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2, d3 -> 2))
     ds.fire(d1).top shouldBe NValueConcrete(1, Map(d1 -> 4, d2 -> 5, d3 -> 3))
 
-  test("Interaction with a neighbour, branched"):
+  test("Branching ping-pong, simulating a sensor"):
     import AggregateLib.branch
     var cond = false
-    val agf = branch(compute(cond))(0):
-      exchange(0):n =>
-        val rs = for i <- n yield i + 1
-        (rs, rs)
+    val agf = branch(compute(cond))(0)(retsend(0)(for i <- _ yield i + 1))
     val (d1, d2) = (newDevice(), newDevice())
     val ds = DistributedSystem[Int](agf, Map(d1 -> Set(d1, d2), d2 -> Set(d1, d2)))
-    ds.fire(d1).top shouldBe 1.concrete
+    ds.fire(d1).top.asValue shouldBe 1
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2))
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2))
     cond = true // sensor change
-    ds.fire(d2).top shouldBe 0.concrete
+    ds.fire(d2).top.asValue shouldBe 0
     cond = false // sensor change
     ds.fire(d1).top shouldBe NValueConcrete(1, Map(d1 -> 2))
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2))
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2))
 
-  test("Folding to get maximum neighbour fires"):
-    import AggregateLib.branch
+  test("Folding ping-pong"):
     val ag = for
         n <- retsend(0)(for i <- _ yield i + 1)
     yield for
-        i <- fold(0)(_ max _)(n)
+        i <- nfold(0)(_ max _)(n)
     yield i
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
     val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
-    ds.fire(d1).top shouldBe 0.concrete
-    ds.fire(d2).top shouldBe 2.concrete
-    ds.fire(d2).top shouldBe 2.concrete
-    ds.fire(d1).top shouldBe 3.concrete
-    ds.fire(d2).top shouldBe 4.concrete
+    ds.fire(d1).top.asValue shouldBe 0
+    ds.fire(d2).top.asValue shouldBe 2
+    ds.fire(d2).top.asValue shouldBe 2
+    ds.fire(d1).top.asValue shouldBe 3
+    ds.fire(d2).top.asValue shouldBe 4

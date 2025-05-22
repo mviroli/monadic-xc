@@ -19,15 +19,14 @@ object Aggregates:
   type Contextual[A] = Device ?=> A
 
   object Aggregate:
-    given [A]: Conversion[A, Aggregate[A]] = compute
+    given [A]: Conversion[A, Aggregate[A]] = NValue.apply(_)
     given [A]: Conversion[NValue[A], Aggregate[A]] = compute
 
     def compute[A](a: =>NValue[A]): Aggregate[A] = CFree.liftM(Val(() => a))
     def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = f.flatMap(v => CFree.liftM(Call(v)))
     def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = a.flatMap(v => CFree.liftM(Xc(v, f)))
     def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = exchange(a)(v => (f(v), f(v)))
-
-    def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Contextual[Aggregate[A]] = retsend(compute(a))(x => f(self(x)))
+    def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Contextual[Aggregate[A]] = retsend(compute(a))(x => f(nself(x)))
   export Semantics.*
 
   /*
@@ -39,7 +38,7 @@ object Aggregates:
 
 
 
-
+/*
 @main def testNFwF =
   import Aggregates.{*, given}
 
@@ -82,5 +81,6 @@ object Aggregates:
   import Aggregates.{*, given}
   given Device = selfDevice
   def counter = rep(0)(for i <- _ yield i + 1)
-  def ag = self(counter)
+  def ag = nself(counter)
 
+*/

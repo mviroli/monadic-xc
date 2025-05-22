@@ -12,6 +12,7 @@ object NValues:
       NValueConcrete(f(a).a, (map.keySet ++ f(a).map.keySet).map(k => (k, f(this.get(k)).get(k))).toMap)
     def map[B](f: A => B): NValueConcrete[B] = NValueConcrete(f(this.a), map.map((k, v) => (k, f(v))))
     def get(d: Device): A = map.getOrElse(d, a)
+    def asValue: A = if map.isEmpty || map.values.forall(v => v == a) then a else throw new MatchError(this)
 
   object NValueConcrete:
     def apply[A](a: A): NValueConcrete[A] = new NValueConcrete(a, Map.empty)
@@ -29,17 +30,20 @@ object NValues:
   object NValue:
     import NValueInternal.*
     given g[A]: Conversion[A, NValue[A]] = apply(_)
-    extension [A](a: A) def nv: NValue[A] = g(a)
     def apply[A](a: A): NValue[A] = Free.liftM(Concrete(NValueConcrete(a, Map.empty)))
-    def self[A](a: NValue[A]): NValue[A] = Free.liftM(Self(a))
-    def fold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A] =
+    def nself[A](a: NValue[A]): NValue[A] = Free.liftM(Self(a))
+    def nfold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A] =
       Free.liftM(
         Builtin(a, d => domain => nv => (domain - d).map(nv.concrete(using d)(using domain).get).foldLeft(init)(op).nv))
+    extension [A](nv: NValue[A]) def selfHasValue(a: A): Boolean = nself(nv).concrete(using selfDevice)(using Set()).a == a
+
+
 
   //extension [A](nv: NValue[A])
     //  def localValue(using Device): A = nv.concrete.get(summon[Device])
 
   private[scafi] object NValueInternal:
+    extension [A](a: A) def nv: NValue[A] = NValue(a)
     def fromConcrete[A](nvc: NValueConcrete[A]): NValue[A] = Free.liftM(Concrete(nvc))
     def apply[A](a: A, map: Map[Device, A]): NValue[A] = Free.liftM(Concrete(NValueConcrete(a, map)))
     def localValue[A](nv: NValue[A])(using Device)(using Set[Device]): A = nv.concrete.get(summon[Device])
