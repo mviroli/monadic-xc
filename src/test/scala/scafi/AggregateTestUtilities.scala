@@ -6,7 +6,7 @@ import Tree.*
 
 object AggregateTestUtilities:
   type DomainChange = PartialFunction[Int, Domain]
-  given DomainChange = Map.empty
+  given dc: DomainChange = Map.empty
   type TreeChange[A] = PartialFunction[Int, Tree[A]]
   given tc[A]: TreeChange[A] = Map.empty
 
@@ -14,9 +14,10 @@ object AggregateTestUtilities:
   def withTreeChange[A](treeChange: TreeChange[A])(body: TreeChange[A] ?=> Assertion): Assertion = body(using treeChange)
 
   extension [A](a: Aggregate[A])
-    def repeat(using device: Device)
+    def repeat(using device: Device = selfDevice)
               (initial: Environment[A] = localEnv(TEmpty[A]()), dom: Domain = Set(device))
-              (using domainChange: DomainChange)(using treeChange: TreeChange[A]): LazyList[Tree[A]] =
+              (using domainChange: DomainChange = dc)
+              (using treeChange: TreeChange[A] = tc[A]): LazyList[Tree[A]] =
       LazyList.iterate((-1, initial)): (step, context) =>
         val preEnv = restrictEnv(context)(domainChange.applyOrElse(step + 1, _ => context.keySet))
         val env = if preEnv.isEmpty then localEnv(TEmpty[A]()) else preEnv

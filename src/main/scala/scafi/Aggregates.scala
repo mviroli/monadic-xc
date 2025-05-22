@@ -2,6 +2,20 @@ package scafi
 
 import scala.reflect.ClassTag
 
+trait AggregateModule:
+  type Aggregate[A]
+  type NV[A]
+
+  given g1[A]: Conversion[A, Aggregate[A]]
+  given g2[A]: Conversion[NV[A], Aggregate[A]]
+
+  def sensor[A](a: => A): Aggregate[A]
+  def compute[A](a: NV[A]): Aggregate[A]
+  def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A]
+  def exchange[A](a: Aggregate[A])(f: NV[A] => (Aggregate[A], Aggregate[A])): Aggregate[A]
+end AggregateModule
+
+
 object Aggregates:
   import CFreeMonads.*
   export NValues.{*, given}
@@ -16,71 +30,13 @@ object Aggregates:
   import AggregateAST.*
 
   type Aggregate[A] = CFree[AggregateAST, NValue, A]
-  type Contextual[A] = Device ?=> A
 
   object Aggregate:
     given [A]: Conversion[A, Aggregate[A]] = NValue.apply(_)
-    given [A]: Conversion[NValue[A], Aggregate[A]] = compute
+    given [A]: Conversion[NValue[A], Aggregate[A]] = compute(_)
 
-    def compute[A](a: =>NValue[A]): Aggregate[A] = CFree.liftM(Val(() => a))
+    def sensor[A](a: =>A): Aggregate[A] = CFree.liftM(Val(() => NValue(a)))
+    def compute[A](a: NValue[A]): Aggregate[A] = CFree.Pure(a)
     def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = f.flatMap(v => CFree.liftM(Call(v)))
     def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = a.flatMap(v => CFree.liftM(Xc(v, f)))
-    def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = exchange(a)(v => (f(v), f(v)))
-    def rep[A](a: NValue[A])(f: NValue[A] => Aggregate[A]): Contextual[Aggregate[A]] = retsend(compute(a))(x => f(nself(x)))
   export Semantics.*
-
-  /*
-    TODOs:
-    - address contextuality for fold
-    - use flatMap more thoroughly
-    - build mini-simulator
-   */
-
-
-
-/*
-@main def testNFwF =
-  import Aggregates.{*, given}
-
-  def ag1: Aggregate[Int] = 10
-  def ag2: Aggregate[Int] = 20
-  def ag3 = for
-    a1 <- ag1
-    a2 <- ag2
-  yield for
-    i1 <- a1
-    i2 <- a2
-  yield i1 + i2
-  given Device = selfDevice
-  //println(ag3.round(local(TEmpty())))
-
-@main def playNFwF =
-  import Aggregates.{*, given}
-  given Device = selfDevice
-  def counter = rep(0)(for i <- _ yield i + 1)
-  def ag = for
-    a1 <- rep(0)(for i <- _ yield i + 1)
-    a2 <- rep(0)(for i <- _ yield i + 1)
-  yield for
-    i1 <- a1
-    i2 <- a2
-  yield i1 + i2
-  def caller = call(() => counter)
-
-@main def playWrongCall =
-  import Aggregates.{*, given}
-  given Device = selfDevice
-  def counter: Aggregate[() => Aggregate[Int]] = rep(() => retsend(0)(identity))(identity)
-  def ag = for
-    nf <- counter
-  yield for
-    f <- nf
-  yield f()
-
-@main def playWithSelf =
-  import Aggregates.{*, given}
-  given Device = selfDevice
-  def counter = rep(0)(for i <- _ yield i + 1)
-  def ag = nself(counter)
-
-*/

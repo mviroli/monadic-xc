@@ -2,16 +2,11 @@ package scafi
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import scafi.AggregateTestUtilities.{*, given}
+import scafi.AggregateTestUtilities.*
 import scafi.Aggregates.{*, given}
-import NValues.NValueInternal.*
 
 class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
-  import Tree.*
-  def counter(initial: Int) = rep(initial)(for i <- _ yield i + 1)
-  given Device = selfDevice
-  given Set[Device] = Set(selfDevice)
-  
+
   test("value"):
     val ag: Aggregate[Int] = 5
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
@@ -32,27 +27,37 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ag: Aggregate[Int] = for n <- ag1 yield for v <- n yield v + 1
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
-  test("self on dummy nvalue"):
-    // available only internally
+  test("self on nvalue"):
+    import NValues.NValueInternal.*
     val nv: NValue[Int] = fromConcrete(NValueConcrete(5, Map(newDevice() -> 4)))
     val ag: Aggregate[Int] = nself(nv)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
+  test("sensor"):
+    var sns = true
+    val ag: Aggregate[Boolean] = sensor(sns)
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(true, true, true, true)
+    sns = false
+    ag.repeat().take(4).map(_.top.asValue) shouldBe List(false, false, false, false)
+
   test("Constant rep"):
+    import scafi.AggregateLib.rep
     val ag: Aggregate[Int] = rep(5)(identity)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("Counter"):
-    // rep(5)(n => n + 1)
+    import scafi.AggregateLib.rep
     val ag = rep(5)(n => for i <- n yield i + 1)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(6, 7, 8, 9)
 
   test("Counter, with restart"):
+    import scafi.AggregateLib.rep
     withDomainChange({case 3 | 4 | 5 => Set()}):
       val ag = rep(5)(n => for i <- n yield i + 1)
       ag.repeat().take(8).map(_.top.asValue) shouldBe List(6, 7, 8, 6, 6, 6, 7, 8)
 
   test("Nested counter"):
+    import scafi.AggregateLib.rep
     // rep(0)(n => rep(1)(identity) + n)
     val ag = rep(0): n =>
       for
@@ -63,6 +68,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 2, 3, 4)
 
   test("Elaborating on a rep")
+    import AggregateLib.counter
     val ag = for
       c <- counter(0)
     yield for
@@ -76,6 +82,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("Call to an aggregate program"):
+    import AggregateLib.counter
     val ag = call(() => counter(0))
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 2, 3, 4)
 
@@ -110,6 +117,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(6).map(_.top.asValue) shouldBe List(1, 2, 100, 100, 1, 2)
 
   test("Ping-pong"):
+    import scafi.AggregateLib.retsend
     val ag = retsend(0)(for i <- _ yield i + 1)
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
     val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
@@ -126,10 +134,10 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ds.fire(d3).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2, d3 -> 2))
     ds.fire(d1).top shouldBe NValueConcrete(1, Map(d1 -> 4, d2 -> 5, d3 -> 3))
 
-  test("Branching ping-pong, simulating a sensor"):
-    import AggregateLib.branch
+  test("Branching ping-pong with a sensor"):
+    import AggregateLib.{branch, retsend}
     var cond = false
-    val agf = branch(compute(cond))(0)(retsend(0)(for i <- _ yield i + 1))
+    val agf = branch(sensor(cond))(0)(retsend(0)(for i <- _ yield i + 1))
     val (d1, d2) = (newDevice(), newDevice())
     val ds = DistributedSystem[Int](agf, Map(d1 -> Set(d1, d2), d2 -> Set(d1, d2)))
     ds.fire(d1).top.asValue shouldBe 1
@@ -142,7 +150,8 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2))
     ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2))
 
-  test("Folding ping-pong"):
+  test("Folding a ping-pong"):
+    import scafi.AggregateLib.retsend
     val ag = for
         n <- retsend(0)(for i <- _ yield i + 1)
     yield for
