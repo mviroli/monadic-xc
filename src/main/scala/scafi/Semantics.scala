@@ -3,13 +3,13 @@ package scafi
 object Semantics:
   import Aggregates.*
   import AggregateAST.*
-  import CFreeMonads.*
-  import FreeMonads.*
+  import FreeSMonads.*
+  //import FreeMonads.*
   import NValues.NValueInternal.*
 
   export Rounds.*
 
-  given CMonad[Round, NValue] with
+  given SMonad[Round, NValue] with
     def pure[A](a: NValue[A]): Round[A] = env => TVal(a.concrete(using summon[Device])(using env.keySet))
 
     def flatMap[A, B](ma: Round[A])(f: NValue[A] => Round[B]): Round[B] = env =>
@@ -49,7 +49,7 @@ object Semantics:
       val cnv = rnv(env.asInstanceOf[Environment[Any]])
       cnv.get(summon[Device])
 
-  private def compilerNV: NValueAST ~> RoundNV = new (NValueAST ~> RoundNV):
-    override def apply[A](nast: NValueAST[A]): RoundNV[A] = nast match
+  private def compilerNV: NValueAST ~~> RoundNV = new (NValueAST ~~> RoundNV):
+    override def apply[A]: NValueAST[A] => RoundNV[A] = 
       case Concrete(c) => env => c
       case Self(nv) => env => NValueConcrete(env.localInterpreted(nv), Map.empty)

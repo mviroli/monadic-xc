@@ -1,14 +1,14 @@
 package scafi
 
-import FreeMonads.*
-import CFreeMonads.*
+
+import FreeSMonads.*
 
 trait AggregateModule:
   type Aggregate[A]
   type NValue[A]
 
   given NValueMonad: Monad[NValue]
-  given AggregateMonad: CMonad[Aggregate, NValue]
+  given AggregateMonad: SMonad[Aggregate, NValue]
 
   given g1[A]: Conversion[A, Aggregate[A]]
   given g2[A]: Conversion[NValue[A], Aggregate[A]]

@@ -4,7 +4,8 @@ object NValues:
 
   import Devices.*
   export NValue.{given, *}
-  import FreeMonads.*
+  import FreeSMonads.*
+  import FreeS.*
 
   case class NValueConcrete[+A] private[scafi] (a: A, map: Map[Device, A]):
     override def toString: String = a.toString + "[" + map.mkString(", ") + "]"
@@ -30,23 +31,23 @@ object NValues:
   object NValue:
     import NValueInternal.*
     given g[A]: Conversion[A, NValue[A]] = apply(_)
-    def apply[A](a: A): NValue[A] = Free.liftM(Concrete(NValueConcrete(a, Map.empty)))
-    def nself[A](a: NValue[A]): NValue[A] = Free.liftM(Self(a))
+    def apply[A](a: A): NValue[A] = FreeS.liftM(Concrete(NValueConcrete(a, Map.empty)))
+    def nself[A](a: NValue[A]): NValue[A] = FreeS.liftM(Self(a))
     def nfold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A] =
-      Free.liftM(
+      FreeS.liftM(
         Builtin(a, d => domain => nv => (domain - d).map(nv.concrete(using d)(using domain).get).foldLeft(init)(op).nv))
     extension [A](nv: NValue[A]) def selfValue(a: A): Boolean = nself(nv).concrete(using selfDevice)(using Set()).a == a
 
   private[scafi] object NValueInternal:
     extension [A](a: A) def nv: NValue[A] = NValue(a)
-    def fromConcrete[A](nvc: NValueConcrete[A]): NValue[A] = Free.liftM(Concrete(nvc))
-    def apply[A](a: A, map: Map[Device, A]): NValue[A] = Free.liftM(Concrete(NValueConcrete(a, map)))
+    def fromConcrete[A](nvc: NValueConcrete[A]): NValue[A] = FreeS.liftM(Concrete(nvc))
+    def apply[A](a: A, map: Map[Device, A]): NValue[A] = FreeS.liftM(Concrete(NValueConcrete(a, map)))
     def localValue[A](nv: NValue[A])(using Device)(using Set[Device]): A = nv.concrete.get(summon[Device])
     extension [A](nv: NValue[A])
       def defaultValue(using Device)(using Set[Device]): A = nv.concrete.a
       def concrete(using d: Device)(using sd: Set[Device]): NValueConcrete[A] = nv match
-        case Free.Pure(a) => NValueConcrete(a)
-        case Free.Suspend(Concrete(nvc)) => nvc
-        case Free.Suspend(Self(nv)) => NValueConcrete(nv.concrete.get(summon[Device]))
-        case Free.Suspend(Builtin(nv, f)) => f(d)(sd)(nv).concrete
-        case Free.FlatMap(nv, f) => nv.concrete.flatMap(x => f(x).concrete)
+        case Pure(a) => NValueConcrete(a)
+        case Suspend(Concrete(nvc)) => nvc
+        case Suspend(Self(nv)) => NValueConcrete(nv.concrete.get(summon[Device]))
+        case Suspend(Builtin(nv, f)) => f(d)(sd)(nv).concrete
+        case FlatMap(nv, f) => nv.concrete.flatMap(x => f(x).concrete)
