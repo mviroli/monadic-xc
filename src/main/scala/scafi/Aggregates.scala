@@ -2,20 +2,6 @@ package scafi
 
 import scala.reflect.ClassTag
 
-trait AggregateModule:
-  type Aggregate[A]
-  type NV[A]
-
-  given g1[A]: Conversion[A, Aggregate[A]]
-  given g2[A]: Conversion[NV[A], Aggregate[A]]
-
-  def sensor[A](a: => A): Aggregate[A]
-  def compute[A](a: NV[A]): Aggregate[A]
-  def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A]
-  def exchange[A](a: Aggregate[A])(f: NV[A] => (Aggregate[A], Aggregate[A])): Aggregate[A]
-end AggregateModule
-
-
 object Aggregates:
   import CFreeMonads.*
   export NValues.{*, given}

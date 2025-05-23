@@ -35,12 +35,7 @@ object NValues:
     def nfold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A] =
       Free.liftM(
         Builtin(a, d => domain => nv => (domain - d).map(nv.concrete(using d)(using domain).get).foldLeft(init)(op).nv))
-    extension [A](nv: NValue[A]) def selfHasValue(a: A): Boolean = nself(nv).concrete(using selfDevice)(using Set()).a == a
-
-
-
-  //extension [A](nv: NValue[A])
-    //  def localValue(using Device): A = nv.concrete.get(summon[Device])
+    extension [A](nv: NValue[A]) def selfValue(a: A): Boolean = nself(nv).concrete(using selfDevice)(using Set()).a == a
 
   private[scafi] object NValueInternal:
     extension [A](a: A) def nv: NValue[A] = NValue(a)
