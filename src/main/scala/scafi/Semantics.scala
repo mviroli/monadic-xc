@@ -13,9 +13,9 @@ object Semantics:
     def pure[A](a: NValue[A]): Round[A] = env => TVal(a.concrete(using summon[Device])(using env.keySet))
 
     def flatMap[A, B](ma: Round[A])(f: NValue[A] => Round[B]): Round[B] = env =>
-      val left2 = ma(env.enter[TNext[Any]](_.left))
-      val right2 = f(fromConcrete(left2.top))(env.enter[TNext[B]](_.right))
-      TNext(left2.asInstanceOf[Tree[Any]], right2)
+      val left = ma(env.enter[TNext[Any]](_.left))
+      val right = f(fromConcrete(left.top))(env.enter[TNext[B]](_.right))
+      TNext(left.asInstanceOf[Tree[Any]], right)
 
   extension [A](ag: Aggregate[A])
     def round: Round[A] = ag.foldMap(compiler)
@@ -23,18 +23,15 @@ object Semantics:
   private def compiler: AggregateAST ~~> Round = new(AggregateAST ~~> Round):
     override def apply[A] =
       case Val(a) => env => TVal(a().concrete(using summon[Device])(using env.keySet))
-      //case Builtin(a, f) => env =>
-      //  TBuiltin(f(summon[Device])(env.keySet)(a))
       case Call(vf) => env =>
-        val nest2 = env.enter[TCall[A]](_.nest, n => localValue(fromConcrete(n.fun))(using summon[Device])(using env.keySet) == localValue(vf)(using summon[Device])(using env.keySet))
+        val nest = env.enter[TCall[A]](_.nest, n => localValue(fromConcrete(n.fun))(using summon[Device])(using env.keySet) == localValue(vf)(using summon[Device])(using env.keySet))
         val body = env.localInterpreted(vf)()
-        TCall(vf.concrete(using summon[Device])(using env.keySet).asInstanceOf[NValueConcrete[() => Aggregate[Any]]], body.round(nest2.asInstanceOf[Environment[A]]))
+        TCall(vf.concrete(using summon[Device])(using env.keySet).asInstanceOf[NValueConcrete[() => Aggregate[Any]]], body.round(nest.asInstanceOf[Environment[A]]))
       case Xc(a, f) => env =>
         val l = localValue(a)(using summon[Device])(using env.keySet)
-        val w = NValueInternal(l, env.enter[TXc[A]](_.send).collectValues[A] { case tree: Tree[A] => NValueInternal.localValue(fromConcrete(tree.top))(using summon[Device])(using env.keySet) })
-        val ret2 = f(w)._1.round(env.enter[TXc[A]](_.ret))
-        val send2 = f(w)._2.round(env.enter[TXc[A]](_.send))
-        TXc(ret2, send2)
+        val w = NValueInternal(l, env.enter[TXc[A]](_.send).collectValues[A]:
+          case tree: Tree[A] => NValueInternal.localValue(fromConcrete(tree.top))(using summon[Device])(using env.keySet))
+        TXc(f(w)._1.round(env.enter[TXc[A]](_.ret)), f(w)._2.round(env.enter[TXc[A]](_.send)))
 
   given Monad[RoundNV] with
     def pure[A](a: A): RoundNV[A] = _ => NValueConcrete(a, Map.empty)

@@ -25,6 +25,7 @@ object Aggregates:
     def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = a.flatMap(v => FreeS.liftM(AggregateAST.Xc(v, f)))
   export Semantics.*
 
+/*
 @main def tryTest =
   import scafi.Aggregates.{*, given}
 
@@ -34,3 +35,5 @@ object Aggregates:
 
   val ag: Aggregate[Int] = 5
   println(ag.evalOne(using selfDevice)().top.asValue)
+
+*/
