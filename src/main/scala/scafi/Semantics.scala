@@ -2,6 +2,7 @@ package scafi
 
 object Semantics:
   import Aggregates.*
+  import NValues.{*, given}
   import AggregateAST.*
   import FreeSMonads.*
   //import FreeMonads.*

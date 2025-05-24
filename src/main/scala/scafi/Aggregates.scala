@@ -14,10 +14,14 @@ object Aggregates:
     case Xc(a: NValue[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
 
   type Aggregate[A] = FreeS[AggregateAST, NValue, A]
+  object monadAggregate extends SMonad[Aggregate, NValue]:
+    def pure[A](a: NValue[A]): Aggregate[A] = FreeS.pure[AggregateAST, NValue, A](a)
+    def flatMap[A, B](ma: Aggregate[A])(f: NValue[A] => Aggregate[B]): Aggregate[B] = ma.flatMap(f)
+
 
   object Aggregate:
-    given [A]: Conversion[A, Aggregate[A]] = NValue.apply(_)
-    given [A]: Conversion[NValue[A], Aggregate[A]] = compute(_)
+    given fromValue[A]: Conversion[A, Aggregate[A]] = NValue.apply(_)
+    given fromNValue[A]: Conversion[NValue[A], Aggregate[A]] = compute(_)
 
     def sensor[A](a: =>A): Aggregate[A] = FreeS.liftM(AggregateAST.Val(() => NValue(a)))
     def compute[A](a: NValue[A]): Aggregate[A] = FreeS.Pure(a)
@@ -25,15 +29,6 @@ object Aggregates:
     def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] = a.flatMap(v => FreeS.liftM(AggregateAST.Xc(v, f)))
   export Semantics.*
 
-/*
-@main def tryTest =
-  import scafi.Aggregates.{*, given}
-
-  extension [A](a: Aggregate[A])
-    def evalOne(using device: Device)(initial: Environment[A] = localEnv(TEmpty[A]()), dom: Domain = Set(device)): Tree[A] =
-      a.round(initial)
-
-  val ag: Aggregate[Int] = 5
-  println(ag.evalOne(using selfDevice)().top.asValue)
-
-*/
+  @main def tryWit =
+    val ag = sensor(10)
+    //println(summon[SMonad[Aggregate,NValue]])

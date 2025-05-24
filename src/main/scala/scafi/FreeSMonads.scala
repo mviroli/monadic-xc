@@ -11,22 +11,22 @@ object FreeSMonads:
   trait ~~>[F[_], G[_]]:
     def apply[A]: F[A] => G[A]
 
-  trait FreeS[M[_], C[_], A]:
+  trait FreeS[F[_], C[_], A]:
     import FreeS.*
-    def flatMap[B](f: C[A] => FreeS[M, C, B]): FreeS[M, C, B] = FlatMap(this, f)
-    def map[B](f: C[A] => C[B]): FreeS[M, C, B] = flatMap(a => pure(f(a)))
-    def foldMap[G[_]](natTrans: M ~~> G)(using SMonad[G, C]): G[A] = this match
+    def flatMap[B](f: C[A] => FreeS[F, C, B]): FreeS[F, C, B] = FlatMap(this, f)
+    def map[B](f: C[A] => C[B]): FreeS[F, C, B] = flatMap(a => pure(f(a)))
+    def foldMap[G[_]](natTrans: F ~~> G)(using SMonad[G, C]): G[A] = this match
       case Pure(a) => SMonad[G, C].pure(a)
       case Suspend(ma) => natTrans.apply(ma)
       case FlatMap(fa, f) =>
         SMonad[G, C].flatMap(fa.foldMap(natTrans))(a => f(a).foldMap(natTrans))
 
   object FreeS:
-    def pure[M[_], C[_], A](a: C[A]): FreeS[M, C, A] = Pure(a)
-    def liftM[M[_], C[_], A](ma: M[A]): FreeS[M, C, A] = Suspend(ma)
-    case class Pure[M[_], C[_], A](a: C[A]) extends FreeS[M, C, A]
-    case class FlatMap[M[_], C[_], A, B](fa: FreeS[M, C, A], f: C[A] => FreeS[M, C, B]) extends FreeS[M, C, B]
-    case class Suspend[M[_], C[_], A](ma: M[A]) extends FreeS[M, C, A]
+    def pure[F[_], C[_], A](a: C[A]): FreeS[F, C, A] = Pure(a)
+    def liftM[F[_], C[_], A](ma: F[A]): FreeS[F, C, A] = Suspend(ma)
+    case class Pure[F[_], C[_], A](a: C[A]) extends FreeS[F, C, A]
+    case class FlatMap[F[_], C[_], A, B](fa: FreeS[F, C, A], f: C[A] => FreeS[F, C, B]) extends FreeS[F, C, B]
+    case class Suspend[F[_], C[_], A](ma: F[A]) extends FreeS[F, C, A]
 
   type Monad[M[_]] = SMonad[M, [X] =>> X]
 

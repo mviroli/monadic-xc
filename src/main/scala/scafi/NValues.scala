@@ -1,5 +1,7 @@
 package scafi
 
+import scafi.Aggregates.Aggregate
+
 object NValues:
 
   import Devices.*
@@ -30,13 +32,17 @@ object NValues:
 
   object NValue:
     import NValueInternal.*
-    given g[A]: Conversion[A, NValue[A]] = apply(_)
+    given toNValue[A]: Conversion[A, NValue[A]] = apply(_)
     def apply[A](a: A): NValue[A] = FreeS.liftM(Concrete(NValueConcrete(a, Map.empty)))
     def nself[A](a: NValue[A]): NValue[A] = FreeS.liftM(Self(a))
     def nfold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A] =
       FreeS.liftM(
         Builtin(a, d => domain => nv => (domain - d).map(nv.concrete(using d)(using domain).get).foldLeft(init)(op).nv))
     extension [A](nv: NValue[A]) def selfValue: A = nself(nv).concrete(using selfDevice)(using Set()).a
+
+  object nvalueAggregate extends Monad[NValue]:
+    def pure[A](a: A): NValue[A] = FreeS.pure[NValueAST, [X] =>> X, A](a)
+    def flatMap[A, B](ma: NValue[A])(f: A =>  NValue[B]):  NValue[B] = ma.flatMap(f)
 
   private[scafi] object NValueInternal:
     extension [A](a: A) def nv: NValue[A] = NValue(a)

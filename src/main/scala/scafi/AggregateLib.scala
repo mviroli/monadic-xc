@@ -1,15 +1,19 @@
 package scafi
 
 object AggregateLib:
-  import Aggregates.{*, given}
+  import AggregateDSL.{*, given}
 
-  def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = exchange(a)(v => (f(v), f(v)))
+  def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] =
+    exchange(a)(v => (f(v), f(v)))
 
-  def rep[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] = retsend(a)(x => f(nself(x)))
+  def rep[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] =
+    retsend(a)(x => f(nself(x)))
 
-  def counter(initial: Int) = rep(initial)(for i <- _ yield i + 1)
+  def counter(initial: Int) =
+    rep(initial)(for i <- _ yield i + 1)
 
-  def self[A](ag: Aggregate[A]): Aggregate[A] = for v <- ag yield nself(v)
+  def self[A](ag: Aggregate[A]): Aggregate[A] =
+    for v <- ag yield nself(v)
 
   def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
     for
