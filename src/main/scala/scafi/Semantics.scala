@@ -4,8 +4,8 @@ object Semantics:
   import Aggregates.*
   import NValues.{*, given}
   import AggregateAST.*
+  import SMonads.*
   import FreeSMonads.*
-  //import FreeMonads.*
   import NValues.NValueInternal.*
 
   export Rounds.*
@@ -27,7 +27,7 @@ object Semantics:
       case Call(vf) => env =>
         val nest = env.enter[TCall[A]](_.nest, n => localValue(fromConcrete(n.fun))(using summon[Device])(using env.keySet) == localValue(vf)(using summon[Device])(using env.keySet))
         val body = env.localInterpreted(vf)()
-        TCall(vf.concrete(using summon[Device])(using env.keySet).asInstanceOf[NValueConcrete[() => Aggregate[Any]]], body.round(nest.asInstanceOf[Environment[A]]))
+        TCall(vf.concrete(using summon[Device])(using env.keySet).asInstanceOf[MapWithDefault[Device, () => Aggregate[Any]]], body.round(nest.asInstanceOf[Environment[A]]))
       case Xc(a, f) => env =>
         val l = localValue(a)(using summon[Device])(using env.keySet)
         val w = NValueInternal(l, env.enter[TXc[A]](_.send).collectValues[A]:
@@ -35,7 +35,7 @@ object Semantics:
         TXc(f(w)._1.round(env.enter[TXc[A]](_.ret)), f(w)._2.round(env.enter[TXc[A]](_.send)))
 
   given Monad[RoundNV] with
-    def pure[A](a: A): RoundNV[A] = _ => NValueConcrete(a, Map.empty)
+    def pure[A](a: A): RoundNV[A] = _ => MapWithDefault(a, Map.empty)
     def flatMap[A, B](ma: RoundNV[A])(f: A => RoundNV[B]): RoundNV[B] = dev ?=> env =>
       ma(using dev)(env).flatMap(a => f(a)(using dev)(env))
 
@@ -50,4 +50,4 @@ object Semantics:
   private def compilerNV: NValueAST ~~> RoundNV = new (NValueAST ~~> RoundNV):
     override def apply[A]: NValueAST[A] => RoundNV[A] = 
       case Concrete(c) => env => c
-      case Self(nv) => env => NValueConcrete(env.localInterpreted(nv), Map.empty)
+      case Self(nv) => env => MapWithDefault(env.localInterpreted(nv), Map.empty)

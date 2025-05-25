@@ -29,7 +29,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("self on nvalue"):
     import NValues.NValueInternal.*
-    val nv: NValue[Int] = fromConcrete(NValueConcrete(5, Map(newDevice() -> 4)))
+    val nv: NValue[Int] = fromConcrete(MapWithDefault(5, Map(newDevice() -> 4)))
     val ag: Aggregate[Int] = nself(nv)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
@@ -122,17 +122,17 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
     val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
     ds.fire(d1).top.asValue shouldBe 1
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 1))
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2))
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 3))
-    ds.fire(d1).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 3))
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 4, d2 -> 4))
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 4, d2 -> 5))
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 4, d2 -> 6))
-    ds.fire(d1).top shouldBe NValueConcrete(1, Map(d1 -> 3, d2 -> 5))
-    ds.fire(d3).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2, d3 -> 1))
-    ds.fire(d3).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2, d3 -> 2))
-    ds.fire(d1).top shouldBe NValueConcrete(1, Map(d1 -> 4, d2 -> 5, d3 -> 3))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 1))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 3))
+    ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 3))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 4))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 5))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 6))
+    ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 3, d2 -> 5))
+    ds.fire(d3).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2, d3 -> 1))
+    ds.fire(d3).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2, d3 -> 2))
+    ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 5, d3 -> 3))
 
   test("Branching ping-pong with a sensor"):
     import AggregateLib.{branch, retsend}
@@ -141,14 +141,14 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val (d1, d2) = (newDevice(), newDevice())
     val ds = DistributedSystem[Int](agf, Map(d1 -> Set(d1, d2), d2 -> Set(d1, d2)))
     ds.fire(d1).top.asValue shouldBe 1
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2))
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
     cond = true // sensor change
     ds.fire(d2).top.asValue shouldBe 0
     cond = false // sensor change
-    ds.fire(d1).top shouldBe NValueConcrete(1, Map(d1 -> 2))
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2))
-    ds.fire(d2).top shouldBe NValueConcrete(1, Map(d1 -> 2, d2 -> 2))
+    ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 2))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2))
+    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
 
   test("Folding a ping-pong"):
     import scafi.AggregateLib.retsend

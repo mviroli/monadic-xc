@@ -3,8 +3,7 @@ package scafi
 trait AggregateEngineAPI:
   api: AggregateLanguageAPI =>
 
-  type NValueConcrete[A]
-  type Export[A] <: { def top: NValueConcrete[A] }
+  type Export[A] <: { def top: MapWithDefault[Device, A] }
   def initialExport[A]: Export[A]
 
   type Device
@@ -15,7 +14,6 @@ trait AggregateEngineAPI:
   def round[A](a: Aggregate[A])(d: Device)(e: Environment[A]): Export[A]
 
 class AggregateEngine extends AggregateEngineAPI with AggregateLanguage:
-  export NValues.NValueConcrete
   type Export[A] = Rounds.Tree[A]
   override def initialExport[A]: Rounds.Tree[A] = Rounds.Tree.TEmpty[A]()
 

@@ -8,14 +8,14 @@ object Rounds:
   import Aggregates.{*, given}
 
   enum Tree[A]:
-    case TVal(res: NValueConcrete[A])
-    case TBuiltin(res: NValueConcrete[A])
+    case TVal(res: MapWithDefault[Device, A])
+    case TBuiltin(res: MapWithDefault[Device, A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
-    case TCall(fun: NValueConcrete[() => Aggregate[Any]], nest: Tree[A])
+    case TCall(fun: MapWithDefault[Device, () => Aggregate[Any]], nest: Tree[A])
     case TXc(ret: Tree[A], send: Tree[A])
     case TEmpty()
 
-    def top: NValueConcrete[A] = this match
+    def top: MapWithDefault[Device, A] = this match
       case TVal(a) => a
       case TBuiltin(a) => a
       case TNext(_, r) => r.top
@@ -41,5 +41,5 @@ object Rounds:
 
   export Contexts.*
   type Round[A] = Device ?=> Environment[A] => Tree[A]
-  type RoundNV[A] = Device ?=> Environment[Any] => NValueConcrete[A]
+  type RoundNV[A] = Device ?=> Environment[Any] => MapWithDefault[Device, A]
 

@@ -1,6 +1,6 @@
 package scafi
 
-import FreeSMonads.*
+import SMonads.*
 
 trait AggregateLanguageAPI:
   type Aggregate[_]
@@ -25,6 +25,7 @@ trait AggregateLanguage extends AggregateLanguageAPI:
   export Aggregates.Aggregate
   export Aggregates.{sensor, compute, call, exchange}
   export Aggregates.Aggregate.{fromValue, fromNValue}
+  import FreeSMonads.*
 
   override given monadAggregate: SMonad[Aggregate, NValue] = Aggregates.monadAggregate
 
@@ -33,5 +34,5 @@ trait AggregateLanguage extends AggregateLanguageAPI:
   export NValues.given
 
   override given monadNValue: Monad[NValue] = NValues.nvalueAggregate
-  
-object AggregateLanguageModule extends AggregateLanguage  
+
+object AggregateLanguageModule extends AggregateLanguage
