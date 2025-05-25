@@ -21,7 +21,7 @@ object Semantics:
   extension [A](ag: Aggregate[A])
     def round: Round[A] = ag.foldMap(compiler)
 
-  private def compiler: AggregateAST ~~> Round = new(AggregateAST ~~> Round):
+  private[scafi] def compiler: AggregateAST ~~> Round = new(AggregateAST ~~> Round):
     override def apply[A] =
       case Val(a) => env => TVal(a().concrete(using summon[Device])(using env.keySet))
       case Call(vf) => env =>

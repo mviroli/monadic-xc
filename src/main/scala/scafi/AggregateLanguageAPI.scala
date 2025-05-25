@@ -2,7 +2,7 @@ package scafi
 
 import FreeSMonads.*
 
-trait AggregateAPI:
+trait AggregateLanguageAPI:
   type Aggregate[_]
   given monadAggregate: SMonad[Aggregate, NValue]
 
@@ -21,7 +21,7 @@ trait AggregateAPI:
   def nfold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A]
   extension [A](nv: NValue[A]) def selfValue: A
 
-object AggregateDSL extends AggregateAPI:
+trait AggregateLanguage extends AggregateLanguageAPI:
   export Aggregates.Aggregate
   export Aggregates.{sensor, compute, call, exchange}
   export Aggregates.Aggregate.{fromValue, fromNValue}
@@ -33,3 +33,5 @@ object AggregateDSL extends AggregateAPI:
   export NValues.given
 
   override given monadNValue: Monad[NValue] = NValues.nvalueAggregate
+  
+object AggregateLanguageModule extends AggregateLanguage  

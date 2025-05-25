@@ -3,7 +3,7 @@ package scafi
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import scafi.AggregateTestUtilities.*
-import scafi.Aggregates.{*, given}
+import AggregateEngineModule.{*, given}
 
 class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
