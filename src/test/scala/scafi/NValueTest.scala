@@ -2,7 +2,6 @@ package scafi
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import NValues.{*, given}
 import MapWithDefault.*
 
 class MapWithDefaultTest extends org.scalatest.funsuite.AnyFunSuite:
@@ -28,6 +27,10 @@ class MapWithDefaultTest extends org.scalatest.funsuite.AnyFunSuite:
     val nv = MapWithDefault(5, Map(0 -> 10, 1 -> 11)).flatMap: x =>
       MapWithDefault(100 + x, Map(0 -> (1 + x), 2 -> x * x))
     nv shouldBe MapWithDefault(105, Map(0 -> 11, 1 -> 111, 2 -> 25))
+
+  test("lifting with map"):
+    val v: MapWithDefault[Int, Int] = MapWithDefault(5, Map(0 -> 10, 1 -> 11)).map(x => x + 1)
+    v shouldBe MapWithDefault(6, Map(0 -> 11, 1 -> 12))
 
   test("lifting"):
     val v: MapWithDefault[Int, Int] = for

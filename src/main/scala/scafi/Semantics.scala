@@ -1,7 +1,10 @@
 package scafi
 
+import scala.reflect.ClassTag
+
 object Semantics:
   import Aggregates.*
+  import Devices.*
   import NValues.{*, given}
   import AggregateAST.*
   import SMonads.*
@@ -11,43 +14,41 @@ object Semantics:
   export Rounds.*
 
   given SMonad[Round, NValue] with
-    def pure[A](a: NValue[A]): Round[A] = env => TVal(a.concrete(using summon[Device])(using env.keySet))
+    def pure[A](a: NValue[A]): Round[A] = env ?=> d ?=> TVal(a.concrete(using env.asInstanceOf[Environment[Any]])(using d))
 
-    def flatMap[A, B](ma: Round[A])(f: NValue[A] => Round[B]): Round[B] = env =>
-      val left = ma(env.enter[TNext[Any]](_.left))
-      val right = f(fromConcrete(left.top))(env.enter[TNext[B]](_.right))
-      TNext(left.asInstanceOf[Tree[Any]], right)
+    extension [A](ma: Round[A]) 
+      def flatMap[B](f: NValue[A] => Round[B]): Round[B] =
+        val left = ma(using Env.enter[TNext[Any]](_.left))
+        val right = f(fromConcrete(left.top))(using Env.enter[TNext[B]](_.right))
+        TNext(left.asInstanceOf[Tree[Any]], right)
 
   extension [A](ag: Aggregate[A])
-    def round: Round[A] = ag.foldMap(compiler)
+    def round: Round[A] = ag.foldMap[Round](compiler)
 
   private[scafi] def compiler: AggregateAST ~~> Round = new(AggregateAST ~~> Round):
     override def apply[A] =
-      case Val(a) => env => TVal(a().concrete(using summon[Device])(using env.keySet))
-      case Call(vf) => env =>
-        val nest = env.enter[TCall[A]](_.nest, n => localValue(fromConcrete(n.fun))(using summon[Device])(using env.keySet) == localValue(vf)(using summon[Device])(using env.keySet))
-        val body = env.localInterpreted(vf)()
-        TCall(vf.concrete(using summon[Device])(using env.keySet).asInstanceOf[MapWithDefault[Device, () => Aggregate[Any]]], body.round(nest.asInstanceOf[Environment[A]]))
-      case Xc(a, f) => env =>
-        val l = localValue(a)(using summon[Device])(using env.keySet)
-        val w = NValueInternal(l, env.enter[TXc[A]](_.send).collectValues[A]:
-          case tree: Tree[A] => NValueInternal.localValue(fromConcrete(tree.top))(using summon[Device])(using env.keySet))
-        TXc(f(w)._1.round(env.enter[TXc[A]](_.ret)), f(w)._2.round(env.enter[TXc[A]](_.send)))
+      case Val(a) => TVal(a().concrete)
+      case Call(vf) =>
+        val nest = Env.enter[TCall[A]](_.nest, n => localValue(fromConcrete(n.fun)) == localValue(vf))
+        val body = Env.localInterpreted(vf)(using Env.as[Any])
+        TCall(vf.concrete.asInstanceOf[NbrMap[() => Aggregate[Any]]], body().round(using nest.as[A]))
+      case Xc(a, f) =>
+        val w = NValueInternal(localValue(a), Env.enter[TXc[A]](_.send).collectValues[A]:
+          case tree: Tree[A] => localValue(fromConcrete(tree.top)))
+        TXc(f(w)._1.round(using Env.enter[TXc[A]](_.ret)), f(w)._2.round(using Env.enter[TXc[A]](_.send)))
 
   given Monad[RoundNV] with
-    def pure[A](a: A): RoundNV[A] = _ => MapWithDefault(a, Map.empty)
-    def flatMap[A, B](ma: RoundNV[A])(f: A => RoundNV[B]): RoundNV[B] = dev ?=> env =>
-      ma(using dev)(env).flatMap(a => f(a)(using dev)(env))
+    def pure[A](a: A): RoundNV[A] = NbrMap(a)
+    extension [A](ma: RoundNV[A]) def flatMap[B](f: A => RoundNV[B]): RoundNV[B] =
+      ma(using summon[Environment[Any]]).flatMap(a => f(a)) // Infinite call?
 
   import NValueAST.*
 
   extension [B](env: Environment[B])
-    private[scafi] def localInterpreted[A](nv: NValue[A])(using Device): A =
-      val rnv = nv.foldMap(compilerNV)
-      val cnv = rnv(env.asInstanceOf[Environment[Any]])
-      cnv.get(summon[Device])
+    private[scafi] def localInterpreted[A](nv: NValue[A]): Contextual[Any, A] =
+      nv.foldMap[RoundNV](compilerNV).get(summon[Device])
 
-  private def compilerNV: NValueAST ~~> RoundNV = new (NValueAST ~~> RoundNV):
-    override def apply[A]: NValueAST[A] => RoundNV[A] = 
-      case Concrete(c) => env => c
-      case Self(nv) => env => MapWithDefault(env.localInterpreted(nv), Map.empty)
+  private def compilerNV: NValueAST ~~> RoundNV = new(NValueAST ~~> RoundNV):
+    override def apply[A]: NValueAST[A] => RoundNV[A] =
+      case Concrete(c) => c
+      case Self(nv) => NbrMap(summon[Environment[Any]].localInterpreted(nv))

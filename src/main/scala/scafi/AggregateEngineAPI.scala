@@ -20,7 +20,7 @@ class AggregateEngine extends AggregateEngineAPI with AggregateLanguage:
   export Devices.{Device, newDevice, selfDevice}
 
   import Semantics.round
-  override def round[A](a: Aggregate[A])(d: Device)(e: Environment[A]): Rounds.Tree[A] = a.round(using d)(e)
+  override def round[A](a: Aggregate[A])(d: Device)(e: Environment[A]): Rounds.Tree[A] = a.round(using e)(using d)
 
 object AggregateEngineModule extends AggregateEngine
 

@@ -22,11 +22,11 @@ object AggregateTestUtilities:
       LazyList.iterate((-1, initial)): (step, context) =>
         val preEnv = restrictEnv(context)(domainChange.applyOrElse(step + 1, _ => context.keySet))
         val env = if preEnv.isEmpty then Map(device -> initialExport[A]) else preEnv
-        (step + 1, Map(device -> a.round(env)))
+        (step + 1, Map(device -> round(a)(device)(env)))
       .map(_._2).map(_(device)).drop(1)
 
     def evalOne(using device: Device)(initial: Environment[A] = Map(device -> initialExport[A]), dom: Domain = Set(device)): Export[A] =
-      a.round(initial)
+      round(a)(device)(initial)
 
   class DistributedSystem[A](aggregate: Aggregate[A], topology: Map[Device, Domain]):
     var envs: Map[Device, Environment[A]] = topology.keySet.map(d => (d, Map(d -> initialExport[A]))).toMap
