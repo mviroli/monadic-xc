@@ -14,7 +14,7 @@ object Semantics:
   export Rounds.*
 
   given SMonad[Round, NValue] with
-    def pure[A](a: NValue[A]): Round[A] = env ?=> d ?=> TVal(a.concrete(using env.asInstanceOf[Environment[Any]])(using d))
+    def pure[A](a: NValue[A]): Round[A] = TVal(a.concrete(using Env.as[Any]))
 
     extension [A](ma: Round[A]) 
       def flatMap[B](f: NValue[A] => Round[B]): Round[B] =
