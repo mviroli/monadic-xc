@@ -1,4 +1,4 @@
-package scafi
+package scafi.core
 
 object Devices:
   opaque type Device = Int

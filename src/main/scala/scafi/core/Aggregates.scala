@@ -1,7 +1,7 @@
-package scafi
+package scafi.core
 
 object Aggregates:
-  import FreeSMonads.{*, given}
+  import smonads.FreeSMonads.{*, given}
   export NValues.{*, given}
   export Aggregate.{*, given}
 
@@ -10,7 +10,7 @@ object Aggregates:
     case Call(f: NValue[() => Aggregate[A]])
     case Xc(a: NValue[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
 
-  type Aggregate[A] = FreeS[AggregateAST, NValue, A]
+  type Aggregate[A] = FreeS[AggregateAST, NValues.NValue, A]
   val monadAggregate = smonadFromFreeS[AggregateAST, NValue]
 
   object Aggregate:

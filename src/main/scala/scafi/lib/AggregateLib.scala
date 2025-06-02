@@ -1,7 +1,7 @@
-package scafi
+package scafi.lib
 
 object AggregateLib:
-  import AggregateLanguageModule.{*, given}
+  import scafi.facade.AggregateLanguageModule.{*, given}
 
   def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] =
     exchange(a)(v => (f(v), f(v)))

@@ -1,4 +1,4 @@
-package scafi
+package smonads
 
 object SMonads:
   trait SMonad[M[_], C[_]]:

@@ -1,4 +1,4 @@
-package scafi
+package smonads
 
 object FreeSMonads:
   export SMonads.*

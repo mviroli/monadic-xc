@@ -1,7 +1,7 @@
 package scafi
 
 import org.scalatest.Assertion
-import AggregateEngineModule.{*, given}
+import scafi.facade.AggregateEngineModule.{*, given}
 
 object AggregateTestUtilities:
   type Domain = Set[Device]

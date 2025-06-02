@@ -1,6 +1,5 @@
-package scafi
-
-import SMonads.*
+package scafi.facade
+import smonads.SMonads.*
 
 trait AggregateLanguageAPI:
   type Aggregate[_]
@@ -22,10 +21,11 @@ trait AggregateLanguageAPI:
   extension [A](nv: NValue[A]) def selfValue: A
 
 trait AggregateLanguage extends AggregateLanguageAPI:
+  import scafi.core.*
   export Aggregates.Aggregate
   export Aggregates.{sensor, compute, call, exchange}
   export Aggregates.Aggregate.{fromValue, fromNValue}
-  import FreeSMonads.*
+  import smonads.FreeSMonads.*
 
   override given monadAggregate: SMonad[Aggregate, NValue] = Aggregates.monadAggregate
 

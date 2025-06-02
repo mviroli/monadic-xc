@@ -3,7 +3,8 @@ package scafi
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import scafi.AggregateTestUtilities.*
-import AggregateEngineModule.{*, given}
+import scafi.facade.AggregateEngineModule.{*, given}
+import scafi.utils.MapWithDefault
 
 class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
@@ -28,8 +29,8 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("self on nvalue"):
-    import NValues.NValueInternal.*
-    val nv: NValue[Int] = fromConcrete(MapWithDefault(5, Map(newDevice() -> 4)))
+    import scafi.core.NValues.NValueInternal.*
+    val nv: NValue[Int] = fromNbrMap(MapWithDefault(5, Map(newDevice() -> 4)))
     val ag: Aggregate[Int] = nself(nv)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
@@ -41,23 +42,23 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(false, false, false, false)
 
   test("Constant rep"):
-    import scafi.AggregateLib.rep
+    import scafi.lib.AggregateLib.rep
     val ag: Aggregate[Int] = rep(5)(identity)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("Counter"):
-    import scafi.AggregateLib.rep
+    import scafi.lib.AggregateLib.rep
     val ag = rep(5)(n => for i <- n yield i + 1)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(6, 7, 8, 9)
 
   test("Counter, with restart"):
-    import scafi.AggregateLib.rep
+    import scafi.lib.AggregateLib.rep
     withDomainChange({case 3 | 4 | 5 => Set()}):
       val ag = rep(5)(n => for i <- n yield i + 1)
       ag.repeat().take(8).map(_.top.asValue) shouldBe List(6, 7, 8, 6, 6, 6, 7, 8)
 
   test("Nested counter"):
-    import scafi.AggregateLib.rep
+    import scafi.lib.AggregateLib.rep
     // rep(0)(n => rep(1)(identity) + n)
     val ag = rep(0): n =>
       for
@@ -68,7 +69,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 2, 3, 4)
 
   test("Elaborating on a rep")
-    import AggregateLib.counter
+    import scafi.lib.AggregateLib.counter
     val ag = for
       c <- counter(0)
     yield for
@@ -82,12 +83,12 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("Call to an aggregate program"):
-    import AggregateLib.counter
+    import scafi.lib.AggregateLib.counter
     val ag = call(() => counter(0))
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 2, 3, 4)
 
   test("Muxing by a rep"):
-    import AggregateLib.mux
+    import scafi.lib.AggregateLib.mux
     val agb: Aggregate[Boolean] = for
       c <- counter(0)
     yield for
@@ -97,7 +98,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 1, 2, 2)
 
   test("Muxing with restart"):
-    import AggregateLib.mux
+    import scafi.lib.AggregateLib.mux
     val agb = for
       c <- counter(0)
     yield for
@@ -107,7 +108,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(6).map(_.top.asValue) shouldBe List(1, 2, 100, 100, 5, 6)
 
   test("Branching with restart"):
-    import AggregateLib.branch
+    import scafi.lib.AggregateLib.branch
     val agb = for
       c <- counter(0)
     yield for
@@ -117,7 +118,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(6).map(_.top.asValue) shouldBe List(1, 2, 100, 100, 1, 2)
 
   test("Ping-pong"):
-    import scafi.AggregateLib.retsend
+    import scafi.lib.AggregateLib.retsend
     val ag = retsend(0)(for i <- _ yield i + 1)
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
     val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
@@ -135,7 +136,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 5, d3 -> 3))
 
   test("Branching ping-pong with a sensor"):
-    import AggregateLib.{branch, retsend}
+    import scafi.lib.AggregateLib.{branch, retsend}
     var cond = false
     val agf = branch(sensor(cond))(0)(retsend(0)(for i <- _ yield i + 1))
     val (d1, d2) = (newDevice(), newDevice())
@@ -151,7 +152,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
 
   test("Folding a ping-pong"):
-    import scafi.AggregateLib.retsend
+    import scafi.lib.AggregateLib.retsend
     val ag = for
         n <- retsend(0)(for i <- _ yield i + 1)
     yield for

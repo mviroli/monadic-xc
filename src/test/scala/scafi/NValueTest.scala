@@ -2,7 +2,9 @@ package scafi
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import MapWithDefault.*
+import core.*
+import scafi.utils.MapWithDefault
+import scafi.utils.MapWithDefault.{*, given}
 
 class MapWithDefaultTest extends org.scalatest.funsuite.AnyFunSuite:
 
