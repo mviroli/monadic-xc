@@ -1,6 +1,13 @@
 package scafi.facade
 import smonads.SMonads.*
 
+/**
+ *  The facade to the API includes:
+ *  - a trait with the contract
+ *  - an implementing trait exporting from "core" implementation
+ *  - an object to import from
+ */
+
 trait AggregateLanguageAPI:
   type Aggregate[_]
   given monadAggregate: SMonad[Aggregate, NValue]

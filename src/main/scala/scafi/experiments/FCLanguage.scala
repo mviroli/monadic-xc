@@ -1,13 +1,10 @@
-package scafi.facade
+package scafi.experiments
 
 import smonads.SMonads.*
 
 trait FCLanguage:
   type Field[_]
   given monadField: Monad[Field]
-
-  type NbrMap[_]
-  given monadNbrMap: Monad[NbrMap]
 
   type NbrField[_]
   given monadNbrField: Monad[NbrField]
@@ -16,12 +13,14 @@ trait FCLanguage:
   given nbrFromValue[A]: Conversion[A, NbrField[A]]
 
   def sensor[A](a: => A): Field[A]
+
+  type NbrMap[_]
   def nbrSensor[A](a: => NbrMap[A]): NbrField[A]
 
   def rep[A](a: =>A)(f: A => Field[A]): Field[A]
   def nbr[A](a: Field[A]): NbrField[A]
   def fold[A](init: A)(op: (A, A) => A)(nbr: NbrField[A]): Field[A]
-  extension [A](f: Field[A]) def asValue: A
+  def branch[A](cond: Field[Boolean])(th: Field[A])(el: Field[A]): Field[A]
 
 def play(fc: FCLanguage) =
   import fc.{*, given}
@@ -32,7 +31,7 @@ def play(fc: FCLanguage) =
       c <- cond
       t <- th
       e <- el
-    yield (if cond.asValue then t else e)
+    yield if c then t else e
 
   def gradient(src: Field[Boolean]): Field[Double] =
     rep(Double.PositiveInfinity): d =>
@@ -61,8 +60,20 @@ def playAttempt(a: Attempt) =
     yield for
       a1 <- v1
       a2 <- v2
-    yield a1 + a2  
-      
+    yield a1 + a2
 
 
+def directLists =
+  trait Ctx[T[_]]
+  def element[T[_], A](using Ctx[T])(a: T[A]): A = ???
+  def give[T[_], A](using Ctx[T])(a: =>A): A = ???
+
+  def compose[T[_], A](body: Ctx[T] ?=> Unit) = ???
+  given Ctx[List] = ???
+
+  compose[List, Int]:
+    var e1 = element(List(10,20,30))
+    var e2 = element(List(40, 50))
+    give:
+      e1 + e2
 

@@ -1,5 +1,9 @@
 package scafi.core
 
+/**
+ * DSL for Aggregates, using the FreeMonad approach
+ */
+
 object Aggregates:
   import smonads.FreeSMonads.{*, given}
   export NValues.{*, given}

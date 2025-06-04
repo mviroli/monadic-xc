@@ -4,6 +4,10 @@ import scafi.utils.MapWithDefault
 
 import scala.reflect.ClassTag
 
+/**
+ * Trees, Exports, Maps, Rounds
+ */
+
 object Environments:
   export Devices.*
   export Tree.*
@@ -12,10 +16,10 @@ object Environments:
   type NbrMap[+A] = MapWithDefault[Device, A]
   def NbrMap[A](a: A, map: Map[Device, A] = Map.empty): NbrMap[A] = MapWithDefault(a, map)
 
-  enum Tree[A]:
+  enum Tree[+A]:
     case TVal(res: NbrMap[A])
     case TNext(left: Tree[Any], right: Tree[A]) extends Tree[A]
-    case TCall(fun: NbrMap[() => Aggregates.Aggregate[Any]], nest: Tree[A])
+    case TCall(fun: NbrMap[Any], nest: Tree[A])
     case TXc(ret: Tree[A], send: Tree[A])
     case TEmpty()
 

@@ -2,7 +2,7 @@ package scafi
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import scafi.AggregateTestUtilities.*
+import scafi.facade.Executor.*
 import scafi.facade.AggregateEngineModule.{*, given}
 import scafi.utils.MapWithDefault
 
@@ -160,8 +160,4 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     yield i
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
     val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
-    ds.fire(d1).top.asValue shouldBe 0
-    ds.fire(d2).top.asValue shouldBe 2
-    ds.fire(d2).top.asValue shouldBe 2
-    ds.fire(d1).top.asValue shouldBe 3
-    ds.fire(d2).top.asValue shouldBe 4
+    ds.fires(d1, d2, d2, d1, d2).map(_.top.asValue) shouldBe List(0,2,2,3,4)

@@ -1,5 +1,8 @@
 package scafi.core
 
+/**
+ * Device ADT
+ */
 object Devices:
   opaque type Device = Int
   val selfDevice: Device = 0

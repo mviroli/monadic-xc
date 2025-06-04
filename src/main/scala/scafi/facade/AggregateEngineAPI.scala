@@ -2,6 +2,13 @@ package scafi.facade
 
 import scafi.utils.MapWithDefault
 
+/**
+ * The facade to the engine implementation includes:
+ *  - a trait with the contract (mixing in the API)
+ *  - an implementing trait exporting from "core" implementation
+ *  - an object to import from
+ */
+
 trait AggregateEngineAPI:
   api: AggregateLanguageAPI =>
 

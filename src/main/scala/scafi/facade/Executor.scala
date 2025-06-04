@@ -1,17 +1,20 @@
-package scafi
+package scafi.facade
 
-import org.scalatest.Assertion
 import scafi.facade.AggregateEngineModule.{*, given}
 
-object AggregateTestUtilities:
+/**
+ * Utilities to run rounds, mainly for simulation/testing
+ */
+
+object Executor:
   type Domain = Set[Device]
   type DomainChange = PartialFunction[Int, Domain]
   given dc: DomainChange = Map.empty
   type TreeChange[A] = PartialFunction[Int, Export[A]]
   given tc[A]: TreeChange[A] = Map.empty
 
-  def withDomainChange(domainChange: DomainChange)(body: DomainChange ?=> Assertion): Assertion = body(using domainChange)
-  def withTreeChange[A](treeChange: TreeChange[A])(body: TreeChange[A] ?=> Assertion): Assertion = body(using treeChange)
+  def withDomainChange(domainChange: DomainChange)(body: DomainChange ?=> Unit): Unit = body(using domainChange)
+  def withTreeChange[A](treeChange: TreeChange[A])(body: TreeChange[A] ?=> Unit): Unit = body(using treeChange)
   def restrictEnv[A](c: Environment[A])(domain: Domain): Environment[A] = c.filter((d, _) => domain.contains(d))
 
   extension [A](a: Aggregate[A])
@@ -34,3 +37,5 @@ object AggregateTestUtilities:
       val tree = aggregate.evalOne(using d)(envs(d), topology(d))
       envs = topology(d).foldLeft(envs)((e, dd) => e + (dd -> (envs(dd) + (d -> tree))))
       tree
+
+    def fires(ds: Device*): Seq[Export[A]] = ds.map(fire(_))

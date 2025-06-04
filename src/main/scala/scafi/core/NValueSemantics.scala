@@ -1,8 +1,11 @@
 package scafi.core
 
-import scala.reflect.ClassTag
-
 import smonads.FreeSMonads.*
+
+/**
+ * Semantics for NValues, using the FreeMonad approach
+ * => it relies on utility MapWithDefault, aka NbrMap
+ */
 
 object NValueSemantics:
   import Environments.*
@@ -22,4 +25,3 @@ object NValueSemantics:
   private def compilerNV: NValueAST ~~> RoundNV = new(NValueAST ~~> RoundNV):
     override def apply[A]: NValueAST[A] => RoundNV[A] =
       case Concrete(c) => c
-      case Self(nv) => NbrMap(summon[Environment[Any]].localInterpreted(nv))

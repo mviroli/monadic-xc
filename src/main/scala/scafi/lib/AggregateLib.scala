@@ -1,5 +1,10 @@
 package scafi.lib
 
+/**
+ * A very minimal lib, mainly to showcase the API, but also including core
+ * constructs (rep, retsend, mux, branch)
+ */
+
 object AggregateLib:
   import scafi.facade.AggregateLanguageModule.{*, given}
 
