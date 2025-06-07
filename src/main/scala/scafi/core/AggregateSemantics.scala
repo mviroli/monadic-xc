@@ -31,11 +31,12 @@ object AggregateSemantics:
 
   private[scafi] def compiler: AggregateAST ~~> Round = new(AggregateAST ~~> Round):
     override def apply[A] =
-      case Val(nv) => TVal(nv().asNbrMap)
+      case Val(nv) =>
+        TVal(nv().asNbrMap)
       case Call(nvFun) =>
         val nestEnv = Env.enter[TCall[_]](_.nest, n => localValue(fromNbrMap(n.fun)) == localValue(nvFun))
         TCall(nvFun.asNbrMap, Env.localInterpreted(nvFun)().round(using nestEnv))
       case Xc(nvInit, nvFun) =>
-        val w = NValueInternal(localValue(nvInit), Env.enter[TXc[A]](_.send).collectValues:
+        val w = NValueInternal(localValue(nvInit), Env.enter[TXc[A]](_.send).collectValues[A]:
           case tree: Tree[A] => localValue(fromNbrMap(tree.top)))
         TXc(nvFun(w)._1.round(using Env.enter[TXc[_]](_.ret)), nvFun(w)._2.round(using Env.enter[TXc[_]](_.send)))

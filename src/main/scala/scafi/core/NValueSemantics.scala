@@ -14,7 +14,7 @@ object NValueSemantics:
   given Monad[RoundNV] with
     def pure[A](a: A): RoundNV[A] = NbrMap(a)
     extension [A](ma: RoundNV[A]) def flatMap[B](f: A => RoundNV[B]): RoundNV[B] =
-      ma(using Env.as[Any]).flatMap(a => f(a))
+      ma(using Env).flatMap(a => f(a))
 
   import NValueAST.*
 
@@ -25,3 +25,4 @@ object NValueSemantics:
   private def compilerNV: NValueAST ~~> RoundNV = new(NValueAST ~~> RoundNV):
     override def apply[A]: NValueAST[A] => RoundNV[A] =
       case Concrete(c) => c
+      case Builtin(a, f) => f(summon[Device])(Env.keySet)(a).foldMap[RoundNV](compilerNV)

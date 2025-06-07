@@ -39,3 +39,12 @@ object Executor:
       tree
 
     def fires(ds: Device*): Seq[Export[A]] = ds.map(fire(_))
+
+@main def debugger =
+  import Executor.*
+  import scafi.lib.AggregateLib.rep
+  val ag: Aggregate[Int] = exchange(5)(x => (x, x))
+  println:
+    ag.evalOne(using selfDevice)().top
+
+

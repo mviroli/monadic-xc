@@ -18,7 +18,7 @@ object Aggregates:
   val monadAggregate = smonadFromFreeS[AggregateAST, NValue]
 
   object Aggregate:
-    given fromValue[A]: Conversion[A, Aggregate[A]] = NValue.apply(_)
+    given fromValue[A]: Conversion[A, Aggregate[A]] = a => compute(NValue(a))
     given fromNValue[A]: Conversion[NValue[A], Aggregate[A]] = compute(_)
 
     def sensor[A](a: =>A): Aggregate[A] =

@@ -8,6 +8,11 @@ import scafi.utils.MapWithDefault
 
 class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
+  test("pre"):
+    val ag: Aggregate[Int] = 5
+    ag.evalOne(using selfDevice)()
+
+
   test("value"):
     val ag: Aggregate[Int] = 5
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
