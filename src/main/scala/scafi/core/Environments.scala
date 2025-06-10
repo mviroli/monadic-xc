@@ -41,8 +41,6 @@ object Environments:
 
   type Environment[A] = Map[Device, Tree[A]]
   object Environment:
-    def localEnv[A](using Device)(t: Tree[A]): Environment[A] = Map(summon[Device] -> t)
-    def restrictEnv[A](c: Environment[A])(domain: Domain): Environment[A] = c.filter((d, _) => domain.contains(d))
     def Env[A: Environment]: Environment[A] = summon[Environment[A]]
     extension [A, W](c: Environment[A])
       def enter[B: ClassTag](f: B => Any, p: B => Boolean = (b: B) => true): Environment[W] = c.collect:
