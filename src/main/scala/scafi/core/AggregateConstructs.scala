@@ -4,9 +4,9 @@ package scafi.core
  * DSL for Aggregates, using the FreeMonad approach
  */
 
-object Aggregates:
+object AggregateConstructs:
   import smonads.FreeSMonads.{*, given}
-  export NValues.{*, given}
+  export NValueConstructs.{*, given}
   export Aggregate.{*, given}
 
   enum AggregateAST[A]:
@@ -14,7 +14,7 @@ object Aggregates:
     case Call(f: NValue[() => Aggregate[A]])
     case Xc(a: NValue[A], f: NValue[A] => (Aggregate[A], Aggregate[A]))
 
-  type Aggregate[A] = FreeS[AggregateAST, NValues.NValue, A]
+  type Aggregate[A] = FreeS[AggregateAST, NValueConstructs.NValue, A]
   val monadAggregate = smonadFromFreeS[AggregateAST, NValue]
 
   object Aggregate:

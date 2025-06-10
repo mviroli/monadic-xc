@@ -29,7 +29,7 @@ class AggregateEngine extends AggregateEngineAPI with AggregateLanguage:
   type Export[A] = Environments.Tree[A]
   override def initialExport[A]: Environments.Tree[A] = Environments.Tree.TEmpty[A]()
 
-  export Devices.{Device, newDevice, selfDevice}
+  export Environments.Devices.{Device, newDevice, selfDevice}
 
   import scafi.core.AggregateSemantics.round
   override def round[A](a: Aggregate[A])(d: Device)(e: Environment[A]): Environments.Tree[A] = a.round(using e)(using d)

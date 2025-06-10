@@ -22,6 +22,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ag: Aggregate[Int] = nv
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
+
   test("operation on value"):
     val nv: NValue[Int] = 4
     val ag: Aggregate[Int] = for n <- nv yield n + 1
@@ -34,8 +35,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("self on nvalue"):
-    import scafi.core.NValues.NValueInternal.*
-    val nv: NValue[Int] = fromNbrMap(MapWithDefault(5, Map(newDevice() -> 4)))
+    val nv: NValue[Int] = NValue(MapWithDefault(5, Map(newDevice() -> 4)))
     val ag: Aggregate[Int] = nself(nv)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
@@ -50,6 +50,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     import scafi.lib.AggregateLib.rep
     val ag: Aggregate[Int] = rep(5)(identity)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
+
 
   test("Counter"):
     import scafi.lib.AggregateLib.rep

@@ -42,9 +42,13 @@ object Executor:
 
 @main def debugger =
   import Executor.*
-  import scafi.lib.AggregateLib.rep
-  val ag: Aggregate[Int] = exchange(5)(x => (x, x))
+  import scafi.lib.AggregateLib.counter
+  val nv: NValue[Int] = 1
+  val nv2: NValue[Int] = for n <- nv yield n + 1
+  val ag: Aggregate[Int] = nv2
   println:
-    ag.evalOne(using selfDevice)().top
+    ag
+  println:
+    ag.repeat().take(1).map(_.top.asValue).toList
 
 

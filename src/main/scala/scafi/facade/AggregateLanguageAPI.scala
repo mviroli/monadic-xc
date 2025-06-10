@@ -29,17 +29,17 @@ trait AggregateLanguageAPI:
 
 trait AggregateLanguage extends AggregateLanguageAPI:
   import scafi.core.*
-  export Aggregates.Aggregate
-  export Aggregates.{sensor, compute, call, exchange}
-  export Aggregates.Aggregate.{fromValue, fromNValue}
+  export AggregateConstructs.Aggregate
+  export AggregateConstructs.{sensor, compute, call, exchange}
+  export AggregateConstructs.Aggregate.{fromValue, fromNValue}
   import smonads.FreeSMonads.*
 
-  override given monadAggregate: SMonad[Aggregate, NValue] = Aggregates.monadAggregate
+  override given monadAggregate: SMonad[Aggregate, NValue] = AggregateConstructs.monadAggregate
 
-  export NValues.NValue
-  export NValues.{nself, nfold, selfValue}
-  export NValues.given
+  export NValueConstructs.NValue
+  export NValueConstructs.{nself, nfold, selfValue}
+  export NValueConstructs.given
 
-  override given monadNValue: Monad[NValue] = NValues.nvalueAggregate
+  override given monadNValue: Monad[NValue] = NValueConstructs.nvalueAggregate
 
 object AggregateLanguageModule extends AggregateLanguage

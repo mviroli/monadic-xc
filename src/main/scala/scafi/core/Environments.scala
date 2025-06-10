@@ -1,7 +1,6 @@
 package scafi.core
 
 import scafi.utils.MapWithDefault
-
 import scala.reflect.ClassTag
 
 /**
@@ -12,6 +11,17 @@ object Environments:
   export Devices.*
   export Tree.*
   export Environment.*
+
+  object Devices:
+    opaque type Device = Int
+    val selfDevice: Device = 0
+    type Domain = Set[Device]
+    private var counter: Device = 1
+
+    def newDevice(): Device = try
+      counter
+    finally
+      counter = counter + 1
 
   type NbrMap[+A] = MapWithDefault[Device, A]
   def NbrMap[A](a: A, map: Map[Device, A] = Map.empty): NbrMap[A] = MapWithDefault(a, map)
