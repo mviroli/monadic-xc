@@ -18,8 +18,6 @@ object AggregateSemantics extends AggregateSemanticsAPI:
 
   import AggregateAST.*
   import NValueSemantics.*
-  import NValueConstructs.given
-
   export Environments.*
 
   extension [A](ag: Aggregate[A])
@@ -42,6 +40,6 @@ object AggregateSemantics extends AggregateSemanticsAPI:
         val nestEnv = Env.enter[TCall[_]](_.nest, n => n.fun.get(summon[Device]) == nvFun.localValue)
         TCall(nvFun.asNbrMap, (nvFun.localValue)().round(using nestEnv))
       case Xc(nvInit, nvFun) =>
-        val w = NValue(NbrMap(nvInit.localValue, Env.enter[TXc[A]](_.send).collectValues[A]:
-          case tree: Tree[A] => NValue(tree.top).localValue))
+        val w = NValue(NbrMap(nvInit.localValue, Env.enter[TXc[A]](_.send).collect:
+          case device -> (tree: Tree[A]) => device -> tree.top.get(summon[Device])))
         TXc(nvFun(w)._1.round(using Env.enter[TXc[_]](_.ret)), nvFun(w)._2.round(using Env.enter[TXc[_]](_.send)))

@@ -44,16 +44,9 @@ object Environments:
     def localEnv[A](using Device)(t: Tree[A]): Environment[A] = Map(summon[Device] -> t)
     def restrictEnv[A](c: Environment[A])(domain: Domain): Environment[A] = c.filter((d, _) => domain.contains(d))
     def Env[A: Environment]: Environment[A] = summon[Environment[A]]
-    extension [A](c: Environment[A])
-      def as[W]: Environment[W] = c.asInstanceOf[Environment[W]]
     extension [A, W](c: Environment[A])
-      def enter[B: ClassTag](f: B => Any, p: B => Boolean = (b: B) => true): Environment[W] =
-        c.collectValues:
-          case v: B if p(v) => f(v).asInstanceOf[Tree[W]]
-    extension[K, V] (c: Map[K, V] )
-      def collectValues[W](pf: PartialFunction[V, W]): Map[K, W] =
-        c.collect:
-          case device -> v if pf.isDefinedAt(v) => device -> pf(v)
+      def enter[B: ClassTag](f: B => Any, p: B => Boolean = (b: B) => true): Environment[W] = c.collect:
+          case device -> (v: B) if p(v) => device -> f(v).asInstanceOf[Tree[W]]
 
   type Contextual[A, B] = Environment[A] ?=> Device ?=> B
   type Round[A] = Contextual[A, Tree[A]]
