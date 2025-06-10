@@ -22,6 +22,17 @@ trait FCLanguage:
   def fold[A](init: A)(op: (A, A) => A)(nbr: NbrField[A]): Field[A]
   def branch[A](cond: Field[Boolean])(th: Field[A])(el: Field[A]): Field[A]
 
+trait FCLanguageImpl extends FCLanguage:
+  import scafi.facade.{AggregateLanguageModule => ALM}
+
+  type Field[A] = ALM.Aggregate[A]
+  given monadField: Monad[Field] with
+    def pure[A](a: A): Field[A] = ALM.fromValue(a)
+    extension [A](ma: Field[A]) def flatMap[B](f: A => Field[B]): Field[B] =
+      ALM.monadAggregate.flatMap(ma)(nv => f(ALM.selfValue(nv))
+
+
+
 def play(fc: FCLanguage) =
   import fc.{*, given}
   def nbrRange: NbrField[Double] = ???
