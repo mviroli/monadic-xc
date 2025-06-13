@@ -10,7 +10,7 @@ import scafi.utils.MapWithDefault
  */
 
 trait AggregateEngineAPI:
-  api: AggregateLanguageAPI =>
+  type Aggregate[A]
 
   type Export[A] <: { def top: MapWithDefault[Device, A] }
   def initialExport[A]: Export[A]
@@ -22,7 +22,7 @@ trait AggregateEngineAPI:
   def selfDevice: Device
   def round[A](a: Aggregate[A])(d: Device)(e: Environment[A]): Export[A]
 
-class AggregateEngine extends AggregateEngineAPI with AggregateLanguage:
+trait AggregateEngine extends AggregateEngineAPI with AggregateLanguage:
   import scafi.core.*
 
   export Environments.Environment
