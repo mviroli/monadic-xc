@@ -4,6 +4,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import scafi.experiments.FCEngineModule.{*, given}
 import scafi.facade.Executor.*
+import scafi.facade.Executor.DistributedSystem.platformSensor
 import scafi.utils.MapWithDefault
 
 class FCTest extends org.scalatest.funsuite.AnyFunSuite:
@@ -23,7 +24,7 @@ class FCTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("sensor"):
     var sns = true
-    val ag: Field[Boolean] = localSensor(sns)
+    val ag: Field[Boolean] = localSensor(() => sns)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(true, true, true, true)
     sns = false
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(false, false, false, false)
@@ -76,49 +77,60 @@ class FCTest extends org.scalatest.funsuite.AnyFunSuite:
     val ag = branch(for c <- rep(0)(_ + 1) yield c < 3 || c > 4)(rep(0)(_ + 1))(100)
     ag.repeat().take(6).map(_.top.asValue) shouldBe List(1, 2, 100, 100, 1, 2)
 
-  /*
-  test("Ping-pong"):
-    import scafi.lib.AggregateLib.retsend
-    val ag = retsend(0)(for i <- _ yield i + 1)
+  test("Count neighbours"):
+    val ag = fold(1)(_+_)(1) // val ag = fold(1)(_+_)(nbr(1)) is the same
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
-    val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
-    ds.fire(d1).top.asValue shouldBe 1
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 1))
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 3))
-    ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 3))
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 4))
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 5))
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 6))
-    ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 3, d2 -> 5))
-    ds.fire(d3).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2, d3 -> 1))
-    ds.fire(d3).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2, d3 -> 2))
-    ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 4, d2 -> 5, d3 -> 3))
+    val ds = DistributedSystem(ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d2, d1), d3 -> Set(d1, d3)))
+    ds.fire(d2).top.asValue shouldBe 1
+    ds.fire(d2).top.asValue shouldBe 1
+    ds.fire(d3).top.asValue shouldBe 1
+    ds.fire(d1).top.asValue shouldBe 3
+    ds.fire(d2).top.asValue shouldBe 2
+    ds.fire(d3).top.asValue shouldBe 2
 
-  test("Branching ping-pong with a sensor"):
-    import scafi.lib.AggregateLib.{branch, retsend}
-    var cond = false
-    val agf = branch(sensor(cond))(0)(retsend(0)(for i <- _ yield i + 1))
-    val (d1, d2) = (newDevice(), newDevice())
-    val ds = DistributedSystem[Int](agf, Map(d1 -> Set(d1, d2), d2 -> Set(d1, d2)))
-    ds.fire(d1).top.asValue shouldBe 1
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2))
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
-    cond = true // sensor change
-    ds.fire(d2).top.asValue shouldBe 0
-    cond = false // sensor change
-    ds.fire(d1).top shouldBe MapWithDefault(1, Map(d1 -> 2))
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2))
-    ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
-
-  test("Folding a ping-pong"):
-    import scafi.lib.AggregateLib.retsend
-    val ag = for
-        n <- retsend(0)(for i <- _ yield i + 1)
-    yield for
-        i <- nfold(0)(_ max _)(n)
-    yield i
+  test("distributed sensor, and summing"):
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
-    val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
-    ds.fires(d1, d2, d2, d1, d2).map(_.top.asValue) shouldBe List(0,2,2,3,4)
-*/
+    val ds: DistributedSystem[Int] = DistributedSystem(Map(d1 -> Set(d1, d2, d3), d2 -> Set(d2, d1), d3 -> Set(d1, d3)))
+          .withSensor("s1", Map(d1 -> 1, d2 -> 2, d3 -> 3))
+          .withAggregate:
+            def summer(sns: Field[Int]): Field[Int] = fold[Int](0)(_+_)(nbr(sns))
+            summer(localSensor(platformSensor("s1")))
+    ds.fire(d1).top.asValue shouldBe 0
+    ds.fire(d2).top.asValue shouldBe 1
+    ds.fire(d3).top.asValue shouldBe 1
+    ds.fire(d1).top.asValue shouldBe 5
+
+  test("mid"):
+    val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
+    val ds: DistributedSystem[Set[Device]] = DistributedSystem(Map(d1 -> Set(d1, d2, d3), d2 -> Set(d2, d1), d3 -> Set(d1, d3)))
+      .withSensor("mid", Map(d1 -> d1, d2 -> d2, d3 -> d3))
+      .withAggregate:
+        def summer(sns: Field[Device]): Field[Set[Device]] = fold[Set[Device]](Set())(_ ++ _)(nbr(sns map (Set(_))))
+        summer(localSensor(platformSensor("mid")))
+    ds.fire(d1).top.asValue shouldBe Set()
+    ds.fire(d2).top.asValue shouldBe Set(d1)
+    ds.fire(d3).top.asValue shouldBe Set(d1)
+    ds.fire(d1).top.asValue shouldBe Set(d2, d3)
+
+  test("gradient"):
+    val (d1, d2, d3, d4, d5) = (newDevice(), newDevice(), newDevice(), newDevice(), newDevice())
+    def mux[A](fb: Field[Boolean])(th: Field[A])(el: Field[A]): Field[A] =
+      for
+        b <- fb
+        t <- th
+        e <- el
+      yield if b then t else e
+    def gradient(src: Field[Boolean]): Field[Double] =
+      rep(Double.PositiveInfinity): distance =>
+        mux(src)(0.0):
+          fold(Double.PositiveInfinity)(_ min _)(nbr(distance + 1))
+    val ds = DistributedSystem:
+      Map(
+        d1 -> Set(d1, d2, d4),
+        d2 -> Set(d2, d3),
+        d3 -> Set(d3, d4, d2),
+        d4 -> Set(d4, d5, d3, d1),
+        d5 -> Set(d5, d4))
+    .withSensor("mid", Map(d1 -> d1, d2 -> d2, d3 -> d3, d4 -> d4, d5 -> d5))
+    .withAggregate:
+        gradient(localSensor(platformSensor("mid")).map(_ == d1))

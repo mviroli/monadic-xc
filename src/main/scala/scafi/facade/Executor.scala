@@ -2,6 +2,8 @@ package scafi.facade
 
 import scafi.facade.AggregateEngineModule.{*, given}
 
+import scala.reflect.ClassTag
+
 /**
  * Utilities to run rounds, mainly for simulation/testing
  */
@@ -31,14 +33,28 @@ object Executor:
     def evalOne(using device: Device)(initial: Environment[A] = Map(device -> initialExport[A]), dom: Domain = Set(device)): Export[A] =
       round(a)(device)(initial)
 
-  class DistributedSystem[A](aggregate: Aggregate[A], topology: Map[Device, Domain]):
+  class DistributedSystem[A](private var aggregate: Aggregate[A], topology: Map[Device, Domain]):
     var envs: Map[Device, Environment[A]] = topology.keySet.map(d => (d, Map(d -> initialExport[A]))).toMap
+    private var _snss: Map[String, Map[Device, Any]] = Map()
+    private var _currentDevice = selfDevice
+    def this(topology: Map[Device, Domain]) = this(null, topology)
+
+    def withAggregate(aggr: DistributedSystem[A] ?=> Aggregate[A]): this.type = try this finally this.aggregate = aggr(using this)
+
+    def withSensor[B](name: String, values: Map[Device, B]): this.type = try this finally _snss = _snss + (name -> values)
+
     def fire(d: Device): Export[A] =
+      _currentDevice = d
       val tree = aggregate.evalOne(using d)(envs(d), topology(d))
       envs = topology(d).foldLeft(envs)((e, dd) => e + (dd -> (envs(dd) + (d -> tree))))
       tree
 
     def fires(ds: Device*): Seq[Export[A]] = ds.map(fire(_))
+
+  object DistributedSystem:
+    def platformSensor[A, B](name: String): DistributedSystem[B] ?=> () => A = () => summon[DistributedSystem[B]]._snss(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[A]
+
+
 
 @main def debugger =
   import Executor.*

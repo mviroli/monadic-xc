@@ -34,4 +34,6 @@ object NValueSemantics extends NValueSemanticsAPI:
   private def compilerNV: NValueAST ~~> RoundNV = new(NValueAST ~~> RoundNV):
     override def apply[A]: NValueAST[A] => RoundNV[A] =
       case Concrete(c) => c
-      case Builtin(a, f) => f(summon[Device])(Env.keySet)(a.asNbrMap)
+      case Builtin(a, f) =>
+        //println(s"out: $a ${Env} ${a.asNbrMap} ${f(summon[Device])(Env.keySet)(a.asNbrMap)}")
+        f(summon[Device])(Env.keySet)(a.asNbrMap)

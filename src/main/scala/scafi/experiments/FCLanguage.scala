@@ -17,7 +17,7 @@ trait FCLanguage:
   given fieldFromValue[A]: Conversion[A, Field[A]]
   given nbrFromValue[A]: Conversion[A, NbrField[A]]
 
-  def localSensor[A](a: => A): Field[A]
+  def localSensor[A](a: () => A): Field[A]
   def nbrSensor[A](a: NbrMap[A]): NbrField[A]
 
   def rep[A](a: =>A)(f: A => Field[A]): Field[A]
@@ -49,12 +49,13 @@ trait FCLanguageImpl extends FCLanguage:
   given fieldFromValue[A]: Conversion[A, Field[A]] = ALM.fromValue
   given nbrFromValue[A]: Conversion[A, NbrField[A]] = a => NbrField(ALM.fromValue(a))
 
-  def localSensor[A](a: => A): Field[A] = ALM.sensor(a)
+  def localSensor[A](a: () => A): Field[A] = ALM.sensor(a())
   def nbrSensor[A](a: NbrMap[A]): NbrField[A] = NbrField(ALM.compute(a))
 
   def rep[A](a: => A)(f: A => Field[A]): Field[A] = ALM.exchange(ALM.compute(a))(nv => (f(ALM.selfValue(nv)), f(ALM.selfValue(nv))))
   def nbr[A](a: Field[A]): NbrField[A] = NbrField(ALM.exchange(a)(nv => (nv, a)))
-  def fold[A](init: A)(op: (A, A) => A)(nbr: NbrField[A]): Field[A] = smonadNbrField.map(nbr)(nv => ALM.nfold(init)(op)(nv)).a
+  def fold[A](init: A)(op: (A, A) => A)(nbr: NbrField[A]): Field[A] =
+    smonadNbrField.map(nbr)(nv => ALM.nfold(init)(op)(nv)).a // smonadNbrField.flatMap(init)(nvi => smonadNbrField.map(nbr)(nv => ALM.nfold(nvi)(op)(nv)).a)
   def branch[A](cond: Field[Boolean])(th: Field[A])(el: Field[A]): Field[A] =
     scafi.lib.AggregateLib.branch(cond)(th)(el)
 

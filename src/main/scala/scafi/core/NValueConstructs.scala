@@ -28,7 +28,9 @@ object NValueConstructs:
     def nself[A](a: NValue[A]): NValue[A] = FreeS.liftM(
       Builtin(a, d => domain => nm => NbrMap(nm.get(d))))
     def nfold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A] = FreeS.liftM(
-        Builtin(a, d => domain => nm => NbrMap((domain - d).map(nm.get(_)).foldLeft(init)(op))))
+        Builtin(a, d => domain => nm =>
+          //println(s"In: $a $d $domain $nm ${NbrMap((domain - d).toList.map(nm.get(_)).foldLeft(init)(op))}")
+          NbrMap((domain - d).toList.map(nm.get(_)).foldLeft(init)(op))))
     extension [A](nv: NValue[A]) def selfValue: A =
       import NValueSemantics.asNbrMap
       nself(nv).asNbrMap(using Map.empty)(using selfDevice).defaultValue
