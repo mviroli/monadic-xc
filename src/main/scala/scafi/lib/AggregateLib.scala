@@ -14,6 +14,9 @@ object AggregateLib:
   def rep[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[A] =
     retsend(a)(x => f(nself(x)))
 
+  def nbr[A](a: Aggregate[A]): Aggregate[A] =
+    exchange(a)(v => (v, a))
+
   def counter(initial: Int) =
     rep(initial)(for i <- _ yield i + 1)
 
@@ -30,4 +33,3 @@ object AggregateLib:
   def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
     call:
       mux(cond)(() => th)(() => el)
-

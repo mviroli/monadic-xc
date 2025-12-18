@@ -17,7 +17,7 @@ trait FCLanguage:
   given fieldFromValue[A]: Conversion[A, Field[A]]
   given nbrFromValue[A]: Conversion[A, NbrField[A]]
 
-  def localSensor[A](a: () => A): Field[A]
+  def localSensor[A](a: => A): Field[A]
   def nbrSensor[A](a: NbrMap[A]): NbrField[A]
 
   def rep[A](a: =>A)(f: A => Field[A]): Field[A]
@@ -49,7 +49,7 @@ trait FCLanguageImpl extends FCLanguage:
   given fieldFromValue[A]: Conversion[A, Field[A]] = ALM.fromValue
   given nbrFromValue[A]: Conversion[A, NbrField[A]] = a => NbrField(ALM.fromValue(a))
 
-  def localSensor[A](a: () => A): Field[A] = ALM.sensor(a())
+  def localSensor[A](a: => A): Field[A] = ALM.sensor(a)
   def nbrSensor[A](a: NbrMap[A]): NbrField[A] = NbrField(ALM.compute(a))
 
   def rep[A](a: => A)(f: A => Field[A]): Field[A] = ALM.exchange(ALM.compute(a))(nv => (f(ALM.selfValue(nv)), f(ALM.selfValue(nv))))

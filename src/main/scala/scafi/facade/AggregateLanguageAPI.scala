@@ -37,7 +37,7 @@ trait AggregateLanguage extends AggregateLanguageAPI:
   override given monadAggregate: SMonad[Aggregate, NValue] = AggregateConstructs.monadAggregate
 
   export NValueConstructs.NValue
-  export NValueConstructs.{nself, nfold, selfValue}
+  export NValueConstructs.{nself, selfValue, nfold}
   export NValueConstructs.given
 
   override given monadNValue: Monad[NValue] = NValueConstructs.nvalueAggregate

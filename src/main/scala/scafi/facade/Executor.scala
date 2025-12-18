@@ -33,27 +33,35 @@ object Executor:
     def evalOne(using device: Device)(initial: Environment[A] = Map(device -> initialExport[A]), dom: Domain = Set(device)): Export[A] =
       round(a)(device)(initial)
 
-  class DistributedSystem[A](private var aggregate: Aggregate[A], topology: Map[Device, Domain]):
-    var envs: Map[Device, Environment[A]] = topology.keySet.map(d => (d, Map(d -> initialExport[A]))).toMap
-    private var _snss: Map[String, Map[Device, Any]] = Map()
+  case class Platform(topology: Map[Device, Domain] = Map(), ssns: Map[String, Map[Device, Any]] = Map()):
+    def withSensor[B](name: String, values: Map[Device, B]): Platform  = this.copy(ssns = ssns + (name -> values))
+
+    def withNeighbourhood(mapping: (Device, Domain)): Platform = this.copy(topology = topology + mapping)
+
+    def asDistributedSystem[A](aggr: DistributedSystem[A] ?=> Aggregate[A]): DistributedSystem[A] =
+      val ds = new DistributedSystem[A](this)
+      ds.aggregate = aggr(using ds)
+      ds
+
+  class DistributedSystem[A](val platform: Platform):
+    var aggregate: Aggregate[A] = _
+    var envs: Map[Device, Environment[A]] = platform.topology.keySet.map(d => (d, Map(d -> initialExport[A]))).toMap
     private var _currentDevice = selfDevice
-    def this(topology: Map[Device, Domain]) = this(null, topology)
-
-    def withAggregate(aggr: DistributedSystem[A] ?=> Aggregate[A]): this.type = try this finally this.aggregate = aggr(using this)
-
-    def withSensor[B](name: String, values: Map[Device, B]): this.type = try this finally _snss = _snss + (name -> values)
 
     def fire(d: Device): Export[A] =
       _currentDevice = d
-      val tree = aggregate.evalOne(using d)(envs(d), topology(d))
-      envs = topology(d).foldLeft(envs)((e, dd) => e + (dd -> (envs(dd) + (d -> tree))))
+      println("device "+d+" ssns "+ platform.ssns)
+      val tree = aggregate.evalOne(using d)(envs(d), platform.topology(d))
+      envs = platform.topology(d).foldLeft(envs)((e, dd) => e + (dd -> (envs(dd) + (d -> tree))))
       tree
 
     def fires(ds: Device*): Seq[Export[A]] = ds.map(fire(_))
 
   object DistributedSystem:
-    def platformSensor[A, B](name: String): DistributedSystem[B] ?=> () => A = () => summon[DistributedSystem[B]]._snss(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[A]
-
+    def bind[A, B](name: String): DistributedSystem[B] ?=> A = {
+      println("ds: "+summon[DistributedSystem[B]]._currentDevice)
+      summon[DistributedSystem[B]].platform.ssns(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[A]
+    }
 
 
 @main def debugger =

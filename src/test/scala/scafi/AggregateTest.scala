@@ -4,6 +4,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import scafi.facade.Executor.*
 import scafi.facade.AggregateEngineModule.{*, given}
+import scafi.facade.Executor.DistributedSystem.bind
 import scafi.utils.MapWithDefault
 
 class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
@@ -59,7 +60,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("Counter, with restart"):
     import scafi.lib.AggregateLib.rep
-    withDomainChange({case 3 | 4 | 5 => Set()}):
+    withDomainChange({ case 3 | 4 | 5 => Set() }):
       val ag = rep(5)(n => for i <- n yield i + 1)
       ag.repeat().take(8).map(_.top.asValue) shouldBe List(6, 7, 8, 6, 6, 6, 7, 8)
 
@@ -75,13 +76,15 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(1, 2, 3, 4)
 
   test("Elaborating on a rep")
-    import scafi.lib.AggregateLib.counter
-    val ag = for
-      c <- counter(0)
-    yield for
-      vc <- c
-    yield vc < 3
-    ag.repeat().take(4).map(_.top.asValue) shouldBe List(true, true, false, false)
+
+  import scafi.lib.AggregateLib.counter
+
+  val ag = for
+    c <- counter(0)
+  yield for
+    vc <- c
+  yield vc < 3
+  ag.repeat().take(4).map(_.top.asValue) shouldBe List(true, true, false, false)
 
   test("Call to a non-aggregate program"):
     val f: () => Aggregate[Int] = () => 5
@@ -127,7 +130,11 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     import scafi.lib.AggregateLib.retsend
     val ag = retsend(0)(for i <- _ yield i + 1)
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
-    val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
+    val ds = Platform()
+      .withNeighbourhood(d1 -> Set(d1, d2, d3))
+      .withNeighbourhood(d2 -> Set(d1, d2, d3))
+      .withNeighbourhood(d3 -> Set(d1, d2, d3))
+      .asDistributedSystem(ag)
     ds.fire(d1).top.asValue shouldBe 1
     ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 1))
     ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
@@ -146,7 +153,10 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     var cond = false
     val agf = branch(sensor(cond))(0)(retsend(0)(for i <- _ yield i + 1))
     val (d1, d2) = (newDevice(), newDevice())
-    val ds = DistributedSystem[Int](agf, Map(d1 -> Set(d1, d2), d2 -> Set(d1, d2)))
+    val ds = Platform()
+      .withNeighbourhood(d1 -> Set(d1, d2))
+      .withNeighbourhood(d2 -> Set(d1, d2))
+      .asDistributedSystem(agf)
     ds.fire(d1).top.asValue shouldBe 1
     ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2))
     ds.fire(d2).top shouldBe MapWithDefault(1, Map(d1 -> 2, d2 -> 2))
@@ -160,10 +170,78 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
   test("Folding a ping-pong"):
     import scafi.lib.AggregateLib.retsend
     val ag = for
-        n <- retsend(0)(for i <- _ yield i + 1)
+      n <- retsend(0)(for i <- _ yield i + 1)
     yield for
-        i <- nfold(0)(_ max _)(n)
+      i <- nfold(0)(_ max _)(n)
     yield i
     val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
-    val ds = DistributedSystem[Int](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
-    ds.fires(d1, d2, d2, d1, d2).map(_.top.asValue) shouldBe List(0,2,2,3,4)
+    val ds = Platform()
+      .withNeighbourhood(d1 -> Set(d1, d2, d3))
+      .withNeighbourhood(d2 -> Set(d1, d2, d3))
+      .withNeighbourhood(d3 -> Set(d1, d2, d3))
+      .asDistributedSystem(ag)
+    ds.fires(d1, d2, d2, d1, d2).map(_.top.asValue) shouldBe List(0, 2, 2, 3, 4)
+
+  val List(d1, d2, d3, d4) = List.fill(4)(newDevice())
+  val platform3 = Platform()
+    .withNeighbourhood(d1 -> Set(d1, d2, d3))
+    .withNeighbourhood(d2 -> Set(d1, d2, d3))
+    .withNeighbourhood(d3 -> Set(d1, d2, d3))
+  val platformAdHoc = Platform()
+    .withNeighbourhood(d1 -> Set(d1, d2))
+    .withNeighbourhood(d2 -> Set(d1, d2, d3))
+    .withNeighbourhood(d3 -> Set(d2, d3, d4))
+    .withNeighbourhood(d4 -> Set(d2, d3, d4))
+
+
+  test("mid"):
+    val ds = platform3
+      .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3))
+      .asDistributedSystem[Int]:
+        sensor(bind("mid"))
+    ds.fires(d1, d2, d2, d1, d2, d3).map(_.top.asValue) shouldBe List(1, 2, 2, 1, 2, 3)
+
+  test("gatherMids"):
+    import lib.AggregateLib.*
+    val ds = platform3
+      .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3))
+      .asDistributedSystem[Set[Int]]:
+        def mid: Aggregate[Int] = sensor(bind("mid"))
+        for
+          m <- mid
+          v <- nbr(mid)
+        yield nfold(Set(m.selfValue))(_ ++ _)(v.map(Set(_)))
+    ds.fires(d1, d2, d3, d1).map(_.top.asValue) shouldBe List(Set(1), Set(1,2), Set(1,2,3), Set(1,2,3))
+
+  test("gossipIds"):
+    import lib.AggregateLib.*
+    val ds = platformAdHoc
+      .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3, d4 -> 4))
+      .asDistributedSystem[Set[Int]]:
+        def mid: Aggregate[Int] = sensor(bind("mid"))
+        def gossipEver[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
+          for
+            nva <- a
+            g <- retsend[A](init)(v => nfold(op(v.selfValue, nva.selfValue))(op)(v))
+          yield g
+        gossipEver[Set[Int]](Set())(_ ++ _)(mid.map(_.map(Set(_))))
+    ds.fires(d1, d2, d3, d1, d2, d1, d4, d3, d2, d1).map(_.top.asValue) shouldBe
+      List(Set(1), Set(1, 2), Set(1,2,3), Set(1,2), Set(1,2,3), Set(1,2,3), Set(1,2,3,4), Set(1,2,3,4), Set(1,2,3,4), Set(1,2,3,4))
+
+  test("gossipMinId"):
+    import lib.AggregateLib.*
+    val ds = platformAdHoc
+      .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3, d4 -> 4))
+      .asDistributedSystem:
+
+        def mid: Aggregate[Int] = sensor(bind("mid"))
+
+        def gossipEver[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
+          for
+            nva <- a
+            g <- retsend[A](init)(v => nfold(op(v.selfValue, nva.selfValue))(op)(v))
+          yield g
+
+        gossipEver[Int](Int.MaxValue)(_ min _)(mid)
+    ds.fires(d4, d2, d3, d1, d4, d2, d3, d4).map(_.top.asValue) shouldBe
+         List(4, 2, 2, 1, 2, 1, 1, 1)
