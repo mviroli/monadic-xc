@@ -33,3 +33,9 @@ object AggregateLib:
   def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
     call:
       mux(cond)(() => th)(() => el)
+
+  def gradientHop(src: Aggregate[Boolean]): Aggregate[Int] =
+    retsend(Int.MaxValue): v =>
+      for
+        d <- mux(src)(0)(v.map(n => if n == Int.MaxValue then n else n + 1))
+      yield nfold(Int.MaxValue)(_ min _)(d)

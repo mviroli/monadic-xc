@@ -233,15 +233,31 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ds = platformAdHoc
       .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3, d4 -> 4))
       .asDistributedSystem:
-
         def mid: Aggregate[Int] = sensor(bind("mid"))
-
         def gossipEver[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
           for
             nva <- a
             g <- retsend[A](init)(v => nfold(op(v.selfValue, nva.selfValue))(op)(v))
           yield g
-
         gossipEver[Int](Int.MaxValue)(_ min _)(mid)
-    ds.fires(d4, d2, d3, d1, d4, d2, d3, d4).map(_.top.asValue) shouldBe
-         List(4, 2, 2, 1, 2, 1, 1, 1)
+
+    Seq(
+      d4 -> 4, d2 -> 2, d3 -> 2, d1 -> 1, d4 -> 2, d2 -> 1, d3 -> 1, d4 -> 1
+    ).foreach: (device, result) =>
+      ds.fire(device).top.asValue shouldBe result
+
+  test("gradient"):
+    import lib.AggregateLib.*
+    val ds = Platform()
+      .withNeighbourhood(d1 -> Set(d1, d2))
+      .withNeighbourhood(d2 -> Set(d1, d2, d3))
+      .withNeighbourhood(d3 -> Set(d2, d3, d4))
+      .withNeighbourhood(d4 -> Set(d2, d3, d4))
+      .withSensor("src", Map(d1 -> true, d2 -> false, d3 -> false, d4 -> false))
+      .asDistributedSystem:
+        gradientHop(sensor(bind("src")))
+
+    Seq(
+      d2 -> Int.MaxValue, d1 -> 0, d2 -> 1, d4 -> Int.MaxValue, d3 -> 2, d4 -> 3
+    ).foreach: (device, result) =>
+      ds.fire(device).top.asValue shouldBe result

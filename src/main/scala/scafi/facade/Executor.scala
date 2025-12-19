@@ -50,7 +50,6 @@ object Executor:
 
     def fire(d: Device): Export[A] =
       _currentDevice = d
-      println("device "+d+" ssns "+ platform.ssns)
       val tree = aggregate.evalOne(using d)(envs(d), platform.topology(d))
       envs = platform.topology(d).foldLeft(envs)((e, dd) => e + (dd -> (envs(dd) + (d -> tree))))
       tree
@@ -59,7 +58,6 @@ object Executor:
 
   object DistributedSystem:
     def bind[A, B](name: String): DistributedSystem[B] ?=> A = {
-      println("ds: "+summon[DistributedSystem[B]]._currentDevice)
       summon[DistributedSystem[B]].platform.ssns(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[A]
     }
 
