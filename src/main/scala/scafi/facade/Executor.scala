@@ -4,6 +4,7 @@ import scafi.facade.AggregateEngineModule.{*, given}
 import scafi.utils.MapWithDefault
 
 import scala.reflect.ClassTag
+import scala.util.Random
 
 /**
  * Utilities to run rounds, mainly for simulation/testing
@@ -15,6 +16,7 @@ object Executor:
   given dc: DomainChange = Map.empty
   type TreeChange[A] = PartialFunction[Int, Export[A]]
   given tc[A]: TreeChange[A] = Map.empty
+  val random = new Random
 
   def withDomainChange(domainChange: DomainChange)(body: DomainChange ?=> Unit): Unit = body(using domainChange)
   def withTreeChange[A](treeChange: TreeChange[A])(body: TreeChange[A] ?=> Unit): Unit = body(using treeChange)
@@ -75,6 +77,10 @@ object Executor:
       tree
 
     def fires(ds: Device*): Seq[Export[A]] = ds.map(fire(_))
+
+    def randomFire(): (Device, Export[A]) =
+      val randomDevice = platform.topology.keySet.toSeq(random.nextInt(platform.topology.size))
+      randomDevice -> fire(randomDevice)
 
   object DistributedSystem:
     def bind[A, B](name: String): DistributedSystem[B] ?=> NValue[A] =

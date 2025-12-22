@@ -290,3 +290,5 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       place((0, 1)) -> 1.0
     ).foreach: (device, result) =>
       ds.fire(device).top.asValue shouldBe result
+    (1 to 100) foreach (_ => ds.randomFire())
+    ds.fire(place(2, 2)).top.asValue shouldBe 4.0
