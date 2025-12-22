@@ -33,10 +33,29 @@ object Executor:
     def evalOne(using device: Device)(initial: Environment[A] = Map(device -> initialExport[A]), dom: Domain = Set(device)): Export[A] =
       round(a)(device)(initial)
 
+  case class Displacement[P](positions: Map[Device, P], topology: Map[Device, Domain]):
+    def apply(p: P): Device = positions.find((k, v) => v == p).get._1
+
+  object Displacement:
+    def grid(n: Int, m: Int): Displacement[(Int, Int)] =
+      val positions = (for x <- 0 until n; y <- 0 until m yield newDevice() -> (x, y)).toMap
+      val topology = (for
+        d1 -> (x1, y1) <- positions.toSet
+        d2 -> (x2, y2) <- positions.toSet
+        if (x1, y1) == (x2, y2) || Math.abs(x2 - x1) + Math.abs(y2 - y1) == 1
+      yield d1 -> d2).groupMap(_._1)(_._2)
+      Displacement(positions, topology)
+
+
   case class Platform(topology: Map[Device, Domain] = Map(), ssns: Map[String, Map[Device, Any]] = Map()):
-    def withSensor[B](name: String, values: Map[Device, B]): Platform  = this.copy(ssns = ssns + (name -> values))
+    def withSensor[B](name: String, values: Map[Device, B], default: B = null): Platform  =
+      val toAdd = if default == null then Map() else Map.from(topology.keys.map(_ -> default))
+      var newValues = (toAdd ++ values).asInstanceOf[Map[Device, NValue[Any]]]
+      this.copy(ssns = ssns + (name -> newValues))
 
     def withNeighbourhood(mapping: (Device, Domain)): Platform = this.copy(topology = topology + mapping)
+
+    def withTopology(topology: Map[Device, Domain]): Platform = this.copy(topology = topology)
 
     def asDistributedSystem[A](aggr: DistributedSystem[A] ?=> Aggregate[A]): DistributedSystem[A] =
       val ds = new DistributedSystem[A](this)
@@ -57,9 +76,9 @@ object Executor:
     def fires(ds: Device*): Seq[Export[A]] = ds.map(fire(_))
 
   object DistributedSystem:
-    def bind[A, B](name: String): DistributedSystem[B] ?=> A = {
+    def bind[A, B](name: String): DistributedSystem[B] ?=> A =
       summon[DistributedSystem[B]].platform.ssns(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[A]
-    }
+
 
 
 @main def debugger =

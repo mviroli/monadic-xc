@@ -264,21 +264,20 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("gradient"):
     import lib.AggregateLib.*
+    val place = Displacement.grid(3, 3)
     val ds = Platform()
-      .withNeighbourhood(d1 -> Set(d1, d2))
-      .withNeighbourhood(d2 -> Set(d1, d2, d3))
-      .withNeighbourhood(d3 -> Set(d2, d3, d4))
-      .withNeighbourhood(d4 -> Set(d2, d3, d4))
-      .withSensor("src", Map(d1 -> true, d2 -> false, d3 -> false, d4 -> false))
+      .withTopology(place.topology)
+      .withSensor[Boolean](name = "src", values = Map(place((0, 0)) -> true), default = false)
       .asDistributedSystem:
         gradient(sensor(bind("src")), 1.0)
 
     Seq(
-      d2 -> Double.PositiveInfinity,
-      d1 -> 0.0,
-      d2 -> 1.0,
-      d4 -> Double.PositiveInfinity,
-      d3 -> 2.0,
-      d4 -> 3.0
+      place((1, 0)) -> Double.PositiveInfinity,
+      place((0, 0)) -> 0.0,
+      place((1, 1)) -> Double.PositiveInfinity,
+      place((1, 0)) -> 1.0,
+      place((1, 1)) -> 2.0,
+      place((2, 0)) -> 2.0,
+      place((2, 1)) -> 3.0
     ).foreach: (device, result) =>
       ds.fire(device).top.asValue shouldBe result
