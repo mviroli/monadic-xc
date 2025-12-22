@@ -52,4 +52,20 @@ object AggregateLib:
           yield current + range
 
 
+  extension [A](dv: (Double, A)) def min(dv2: (Double, A)): (Double, A) = if dv._1 < dv2._1 then dv else dv2
+
+  def gradcast[A](src: Aggregate[Boolean], distance: Aggregate[Double])(field: Aggregate[A]): Aggregate[A] =
+    retsend(field.map(_.map(Double.PositiveInfinity -> _))): v =>
+      mux(src)(field.map(_.map(Double.PositiveInfinity -> _))):
+        for
+          fv <- field
+          dv <- distance
+        yield
+          nfold(Double.PositiveInfinity -> fv.selfValue)(_ min _):
+            for
+              range <- dv
+              current <- v.map(_._1)
+              value <- v.map(_._2)
+            yield current + range -> value
+    .map(_.map(_._2))
 
