@@ -267,17 +267,26 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val place = Displacement.grid(3, 3)
     val ds = Platform()
       .withTopology(place.topology)
-      .withSensor[Boolean](name = "src", values = Map(place((0, 0)) -> true), default = false)
+      .withSensor[Boolean](
+        name = "src",
+        values = Map(place((0, 0)) -> true),
+        default = false)
+      // nbrRange is a neighbour sensor, 1.0 everywhere except that device (1,0) perceives only device (0,0) at distance 1.1
+      .withSensor[Double](
+        name = "nbrRange",
+        values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0,0)) -> 1.1))),
+        default = 1.0)
       .asDistributedSystem:
-        gradient(sensor(bind("src")), 1.0)
+        gradient(sensor(bind("src")), sensor(bind("nbrRange")))
 
     Seq(
       place((1, 0)) -> Double.PositiveInfinity,
       place((0, 0)) -> 0.0,
       place((1, 1)) -> Double.PositiveInfinity,
-      place((1, 0)) -> 1.0,
-      place((1, 1)) -> 2.0,
-      place((2, 0)) -> 2.0,
-      place((2, 1)) -> 3.0
+      place((1, 0)) -> 1.1,
+      place((1, 1)) -> 2.1,
+      place((2, 0)) -> 2.1,
+      place((2, 1)) -> 3.1,
+      place((0, 1)) -> 1.0
     ).foreach: (device, result) =>
       ds.fire(device).top.asValue shouldBe result
