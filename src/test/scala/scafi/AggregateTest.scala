@@ -2,7 +2,7 @@ package scafi
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import scafi.facade.Executor.*
+import scafi.facade.Executor.{*, given}
 import scafi.facade.AggregateEngineModule.{*, given}
 import scafi.facade.Executor.DistributedSystem.bind
 import scafi.utils.MapWithDefault

@@ -14,7 +14,7 @@ trait AggregateLanguageAPI:
 
   given fromValue[A]: Conversion[A, Aggregate[A]]
   given fromNValue[A]: Conversion[NValue[A], Aggregate[A]]
-  def sensor[A](a: => A): Aggregate[A]
+  def sensor[A](a: => NValue[A]): Aggregate[A]
   def compute[A](a: NValue[A]): Aggregate[A]
   def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A]
   def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A]

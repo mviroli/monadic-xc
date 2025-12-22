@@ -1,6 +1,7 @@
 package scafi.facade
 
 import scafi.facade.AggregateEngineModule.{*, given}
+import scafi.utils.MapWithDefault
 
 import scala.reflect.ClassTag
 
@@ -46,11 +47,11 @@ object Executor:
       yield d1 -> d2).groupMap(_._1)(_._2)
       Displacement(positions, topology)
 
-
-  case class Platform(topology: Map[Device, Domain] = Map(), ssns: Map[String, Map[Device, Any]] = Map()):
-    def withSensor[B](name: String, values: Map[Device, B], default: B = null): Platform  =
-      val toAdd = if default == null then Map() else Map.from(topology.keys.map(_ -> default))
-      var newValues = (toAdd ++ values).asInstanceOf[Map[Device, NValue[Any]]]
+  given valueToMap[A]: Conversion[A, MapWithDefault[Device, A]] = MapWithDefault(_)
+  case class Platform(topology: Map[Device, Domain] = Map(), ssns: Map[String, Map[Device, NValue[Any]]] = Map()):
+    def withSensor[B](name: String, values: Map[Device, MapWithDefault[Device, B]], default: B = null): Platform  =
+      val toAdd = if default == null then Map() else Map.from(topology.keys.map(_ -> NValue(default)))
+      var newValues = (toAdd ++ values.map((k,v)=>(k,NValue(v)))).asInstanceOf[Map[Device, NValue[Any]]]
       this.copy(ssns = ssns + (name -> newValues))
 
     def withNeighbourhood(mapping: (Device, Domain)): Platform = this.copy(topology = topology + mapping)
@@ -76,8 +77,8 @@ object Executor:
     def fires(ds: Device*): Seq[Export[A]] = ds.map(fire(_))
 
   object DistributedSystem:
-    def bind[A, B](name: String): DistributedSystem[B] ?=> A =
-      summon[DistributedSystem[B]].platform.ssns(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[A]
+    def bind[A, B](name: String): DistributedSystem[B] ?=> NValue[A] =
+      summon[DistributedSystem[B]].platform.ssns(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[NValue[A]]
 
 
 

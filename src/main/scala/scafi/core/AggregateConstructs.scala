@@ -21,8 +21,8 @@ object AggregateConstructs:
     given fromValue[A]: Conversion[A, Aggregate[A]] = a => compute(NValue(a))
     given fromNValue[A]: Conversion[NValue[A], Aggregate[A]] = compute(_)
 
-    def sensor[A](a: =>A): Aggregate[A] =
-      FreeS.liftM(AggregateAST.Val(() => NValue(a)))
+    def sensor[A](a: => NValue[A]): Aggregate[A] =
+      FreeS.liftM(AggregateAST.Val(() => a))
     def compute[A](a: NValue[A]): Aggregate[A] =
       FreeS.Pure(a)
     def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] =
