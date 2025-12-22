@@ -246,6 +246,22 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     ).foreach: (device, result) =>
       ds.fire(device).top.asValue shouldBe result
 
+  test("hopGradient"):
+    import lib.AggregateLib.*
+    val ds = Platform()
+      .withNeighbourhood(d1 -> Set(d1, d2))
+      .withNeighbourhood(d2 -> Set(d1, d2, d3))
+      .withNeighbourhood(d3 -> Set(d2, d3, d4))
+      .withNeighbourhood(d4 -> Set(d2, d3, d4))
+      .withSensor("src", Map(d1 -> true, d2 -> false, d3 -> false, d4 -> false))
+      .asDistributedSystem:
+        hopGradient(sensor(bind("src")))
+
+    Seq(
+      d2 -> Int.MaxValue, d1 -> 0, d2 -> 1, d4 -> Int.MaxValue, d3 -> 2, d4 -> 3
+    ).foreach: (device, result) =>
+      ds.fire(device).top.asValue shouldBe result
+
   test("gradient"):
     import lib.AggregateLib.*
     val ds = Platform()
@@ -255,9 +271,14 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       .withNeighbourhood(d4 -> Set(d2, d3, d4))
       .withSensor("src", Map(d1 -> true, d2 -> false, d3 -> false, d4 -> false))
       .asDistributedSystem:
-        gradientHop(sensor(bind("src")))
+        gradient(sensor(bind("src")), 1.0)
 
     Seq(
-      d2 -> Int.MaxValue, d1 -> 0, d2 -> 1, d4 -> Int.MaxValue, d3 -> 2, d4 -> 3
+      d2 -> Double.PositiveInfinity,
+      d1 -> 0.0,
+      d2 -> 1.0,
+      d4 -> Double.PositiveInfinity,
+      d3 -> 2.0,
+      d4 -> 3.0
     ).foreach: (device, result) =>
       ds.fire(device).top.asValue shouldBe result

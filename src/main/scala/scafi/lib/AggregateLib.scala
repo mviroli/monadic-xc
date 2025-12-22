@@ -34,8 +34,22 @@ object AggregateLib:
     call:
       mux(cond)(() => th)(() => el)
 
-  def gradientHop(src: Aggregate[Boolean]): Aggregate[Int] =
+  def hopGradient(src: Aggregate[Boolean]): Aggregate[Int] =
     retsend(Int.MaxValue): v =>
-      for
-        d <- mux(src)(0)(v.map(n => if n == Int.MaxValue then n else n + 1))
-      yield nfold(Int.MaxValue)(_ min _)(d)
+      mux(src)(0):
+        nfold(Int.MaxValue)(_ min _):
+          v.map(n => if n == Int.MaxValue then n else n + 1)
+
+  def gradient(src: Aggregate[Boolean], distance: Aggregate[Double]): Aggregate[Double] =
+    retsend(Double.PositiveInfinity): v =>
+      mux(src)(0.0):
+        for
+          d <- distance
+        yield nfold(Double.PositiveInfinity)(_ min _):
+          for
+            range <- d
+            current <- v
+          yield current + range
+
+
+
