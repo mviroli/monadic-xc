@@ -53,10 +53,11 @@ object AggregateLib:
 
 
   extension [A](dv: (Double, A)) def min(dv2: (Double, A)): (Double, A) = if dv._1 < dv2._1 then dv else dv2
+  extension [A](a: Aggregate[A]) def deepMap[B](f: A => B): Aggregate[B] = a.map(_.map(f))
 
-  def gradcast[A](src: Aggregate[Boolean], distance: Aggregate[Double])(field: Aggregate[A]): Aggregate[A] =
-    retsend(field.map(_.map(Double.PositiveInfinity -> _))): v =>
-      mux(src)(field.map(_.map(Double.PositiveInfinity -> _))):
+  def gradcast[A](src: Aggregate[Boolean], distance: Aggregate[Double])(field: Aggregate[A]): Aggregate[(Double, A)] =
+    retsend(field.deepMap(Double.PositiveInfinity -> _)): v =>
+      mux(src)(field.deepMap(0.0 -> _)):
         for
           fv <- field
           dv <- distance
@@ -67,5 +68,4 @@ object AggregateLib:
               current <- v.map(_._1)
               value <- v.map(_._2)
             yield current + range -> value
-    .map(_.map(_._2))
-
+//    .deepMap(_._2)
