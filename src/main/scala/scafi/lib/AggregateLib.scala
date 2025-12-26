@@ -40,11 +40,11 @@ object AggregateLib:
         nfold(Int.MaxValue)(_ min _):
           v.map(n => if n == Int.MaxValue then n else n + 1)
 
-  def gradient(src: Aggregate[Boolean], distance: Aggregate[Double]): Aggregate[Double] =
+  def gradient(src: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
     retsend(Double.PositiveInfinity): v =>
       mux(src)(0.0):
         for
-          d <- distance
+          d <- range
         yield nfold(Double.PositiveInfinity)(_ min _):
           for
             range <- d
@@ -55,17 +55,87 @@ object AggregateLib:
   extension [A](dv: (Double, A)) def min(dv2: (Double, A)): (Double, A) = if dv._1 < dv2._1 then dv else dv2
   extension [A](a: Aggregate[A]) def deepMap[B](f: A => B): Aggregate[B] = a.map(_.map(f))
 
-  def gradcast[A](src: Aggregate[Boolean], distance: Aggregate[Double])(field: Aggregate[A]): Aggregate[(Double, A)] =
+  def fold[A](init: Aggregate[A])(op: (A,A) => A)(element: Aggregate[A]): Aggregate[A] =
+    for
+      i <- init
+      e <- element
+    yield nfold(i.selfValue)(op)(e)
+
+
+  def broadcast[A](src: Aggregate[Boolean])(field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
     retsend(field.deepMap(Double.PositiveInfinity -> _)): v =>
       mux(src)(field.deepMap(0.0 -> _)):
         for
-          fv <- field
-          dv <- distance
+          fieldNV <- field
+          distanceNV <- range
         yield
-          nfold(Double.PositiveInfinity -> fv.selfValue)(_ min _):
+          nfold(Double.PositiveInfinity -> fieldNV.selfValue)(_ min _):
             for
-              range <- dv
-              current <- v.map(_._1)
-              value <- v.map(_._2)
-            yield current + range -> value
-//    .deepMap(_._2)
+              rangeV <- distanceNV
+              distanceV <- v.map(_._1)
+              fieldV <- v.map(_._2)
+            yield distanceV + rangeV -> fieldV
+
+  /*
+  def map3NV[A,B,C,D](a: NValue[A], b: NValue[B], c: NValue[C])(f: (A, B, C) => D): NValue[D] =
+    for a1 <- a; b1 <- b; c1 <- c yield f(a1,b1,c1)
+
+  def gradcast2[A](src: Aggregate[Boolean], distance: Aggregate[Double])(field: Aggregate[A]): Aggregate[(Double, A)] =
+    def init(d: Double) = field.deepMap(d -> _)
+    retsend(init(Double.PositiveInfinity)): v =>
+      mux(src)(init(0)):
+         fold(init(Double.PositiveInfinity))(_ min _):
+            distance.map:
+              map3NV(_, v.map(_._1), v.map(_._2)): (dist, rng, value) =>
+                dist + rng -> value
+*/
+
+  def gradcast[A](src: Aggregate[Boolean])(op: (A, Double) => A, field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
+    retsend(field.deepMap(Double.PositiveInfinity -> _)): v =>
+      mux(src)(field.deepMap(0.0 -> _)):
+        for
+          fieldNV <- field
+          distanceNV <- range
+        yield
+          nfold(Double.PositiveInfinity -> fieldNV.selfValue)(_ min _):
+            for
+              rangeV <- distanceNV
+              distanceV <- v.map(_._1)
+              fieldV <- v.map(_._2)
+            yield distanceV + rangeV -> op(fieldV, distanceV + rangeV)
+
+  def distanceBetween(src: Aggregate[Boolean], dest: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
+    broadcast(src)(gradient(dest)).deepMap(_._2)
+
+  def channel(src: Aggregate[Boolean], dest: Aggregate[Boolean], width: Aggregate[Double])(using range: Aggregate[Double]): Aggregate[Boolean] =
+    for
+      srcDistanceNV <- gradient(src)
+      destDistanceNV <- gradient(dest)
+      distanceBetweenNV <- distanceBetween(src, dest)
+      widthNV <- width
+    yield for
+      srcDistanceV <- srcDistanceNV
+      destDistanceV <- destDistanceNV
+      distanceBetweenV <- distanceBetweenNV
+      widthV <- widthNV
+    yield srcDistanceV + destDistanceV - distanceBetweenV < widthV
+/*
+  case class DeepAggregate[A](a: Aggregate[A]):
+    def flatMap[B](f: A => DeepAggregate[B]): DeepAggregate[B] =
+      a.flatMap(nvx => nvx.flatMap(x => f(x).a.selfValue)).deep
+    def map[B](f: A => B): DeepAggregate[B] = ???
+
+  extension [A](a: Aggregate[A])
+    def deep: DeepAggregate[A] = DeepAggregate(a)
+
+  given f[A]:Conversion[DeepAggregate[A], Aggregate[A]] = d => d.a
+
+  def channel2(src: Aggregate[Boolean], dest: Aggregate[Boolean], width: Aggregate[Double])(using range: Aggregate[Double]): Aggregate[Boolean] =
+    for
+      srcDistance <- gradient(src).deep
+      destDistance <- gradient(dest).deep
+      distanceBetween <- distanceBetween(src, dest).deep
+      w <- width.deep
+    yield srcDistance + destDistance - distanceBetween < w
+
+    */

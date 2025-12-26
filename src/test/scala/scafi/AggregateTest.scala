@@ -277,7 +277,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0,0)) -> 1.1))),
         default = 1.0)
       .asDistributedSystem:
-        gradient(sensor(bind("src")), sensor(bind("nbrRange")))
+        gradient(sensor(bind("src")))(using sensor(bind("nbrRange")))
 
     Seq(
       place((1, 0)) -> Double.PositiveInfinity,
@@ -293,7 +293,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     (1 to 100) foreach (_ => ds.randomFire())
     ds.fire(place(2, 2)).top.asValue shouldBe 4.0
 
-  test("gradcast"):
+  test("broadcast"):
     import lib.AggregateLib.*
     val place = Displacement.grid(3, 3)
     val ds = Platform()
@@ -308,7 +308,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
         default = 1.0)
       .asDistributedSystem:
-        gradcast(sensor(bind("src")), sensor(bind("nbrRange")))(sensor(bind("src")))
+        broadcast(sensor(bind("src")))(sensor(bind("src")))(using sensor(bind("nbrRange")))
 
     Seq(
       place((1, 0)) -> (Double.PositiveInfinity -> false),
@@ -320,3 +320,52 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       place((2, 1)) -> (3.1 -> true),
     ).foreach: (device, result) =>
       ds.fire(device).top.asValue shouldBe result
+
+  test("distanceBetween"):
+    import lib.AggregateLib.*
+    val place = Displacement.grid(3, 3)
+    val ds = Platform()
+      .withTopology(place.topology)
+      .withSensor[Boolean](
+        name = "src",
+        values = Map(place((0, 0)) -> true),
+        default = false)
+      .withSensor[Boolean](
+        name = "dest",
+        values = Map(place((2, 1)) -> true),
+        default = false)
+      .withSensor[Double](
+        name = "nbrRange",
+        values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
+        default = 1.0)
+      .asDistributedSystem:
+        given range: Aggregate[Double] = sensor(bind("nbrRange"))
+        distanceBetween(sensor(bind("src")), sensor(bind("dest")))
+
+    (1 to 100) foreach (_ => ds.randomFire())
+    place.topology.keys.foreach: device =>
+      ds.fire(device).top.asValue shouldBe 3.0
+
+  test("channel"):
+    import lib.AggregateLib.*
+    val place = Displacement.grid(3, 3)
+    val ds = Platform()
+      .withTopology(place.topology)
+      .withSensor[Boolean](
+        name = "src",
+        values = Map(place((1, 0)) -> true),
+        default = false)
+      .withSensor[Boolean](
+        name = "dest",
+        values = Map(place((1, 2)) -> true),
+        default = false)
+      .withSensor[Double](
+        name = "nbrRange",
+        values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
+        default = 1.0)
+      .asDistributedSystem:
+        given range: Aggregate[Double] = sensor(bind("nbrRange"))
+        channel(sensor(bind("src")), sensor(bind("dest")),0.3)
+
+    (1 to 100) foreach (_ => ds.randomFire())
+    place.topology.keys.toSet.filter(ds.fire(_).top.asValue).map(place(_)) shouldBe Set((1, 2), (1, 1), (1, 0))

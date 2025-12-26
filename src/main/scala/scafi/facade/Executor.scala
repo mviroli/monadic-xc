@@ -38,6 +38,7 @@ object Executor:
 
   case class Displacement[P](positions: Map[Device, P], topology: Map[Device, Domain]):
     def apply(p: P): Device = positions.find((k, v) => v == p).get._1
+    def apply(d: Device): P = positions(d)
 
   object Displacement:
     def grid(n: Int, m: Int): Displacement[(Int, Int)] =
