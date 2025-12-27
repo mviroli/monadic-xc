@@ -96,23 +96,46 @@ object AggregateLib:
       distanceBetweenV <- distanceBetweenNV
       widthV <- widthNV
     yield srcDistanceV + destDistanceV - distanceBetweenV < widthV
-/*
-  case class DeepAggregate[A](a: Aggregate[A]):
-    def flatMap[B](f: A => DeepAggregate[B]): DeepAggregate[B] =
-      a.flatMap(nvx => nvx.flatMap(x => f(x).a.selfValue)).deep
-    def map[B](f: A => B): DeepAggregate[B] = ???
+
+  import Polyadic.*
+
+  given Applicative[Aggregate] with
+    def pure[A](a: A): Aggregate[A] = compute(a)
+
+    def ap[A, B](ff: Aggregate[A => B])(fa: Aggregate[A]): Aggregate[B] =
+      for
+        ffNV <- ff
+        faNV <- fa
+      yield for
+        ffV <- ffNV
+        faV <- faNV
+      yield ffV(faV)
+
+  extension [T <: Tuple, Z](t: T)
+
+    def aMapN(f: Tuple.InverseMap[T, Aggregate] => Z) =
+      t.mapN[Aggregate](f)
 
   extension [A](a: Aggregate[A])
-    def deep: DeepAggregate[A] = DeepAggregate(a)
+    def aMapN[B](f: A => B) =
+      a.map(_.map(f))
 
-  given f[A]:Conversion[DeepAggregate[A], Aggregate[A]] = d => d.a
+  def gradient2(src: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
+    retsend(Double.PositiveInfinity): v =>
+      mux(src)(0.0):
+        fold(Double.PositiveInfinity)(_ min _):
+          (range, compute(v)).aMapN(_ + _)
+
+  def broadcast2[A](src: Aggregate[Boolean])(field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
+    retsend(field.aMapN(Double.PositiveInfinity -> _)): dv =>
+      mux(src)(field.aMapN(0.0 -> _)):
+        fold(field.aMapN(Double.PositiveInfinity -> _))(_ min _):
+          (compute(dv), range).aMapN:
+            case (distval, rng) => distval._1 + rng -> distval._2
+
+  def distanceBetween2(src: Aggregate[Boolean], dest: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
+    broadcast(src)(gradient(dest)).aMapN(_._2)
 
   def channel2(src: Aggregate[Boolean], dest: Aggregate[Boolean], width: Aggregate[Double])(using range: Aggregate[Double]): Aggregate[Boolean] =
-    for
-      srcDistance <- gradient(src).deep
-      destDistance <- gradient(dest).deep
-      distanceBetween <- distanceBetween(src, dest).deep
-      w <- width.deep
-    yield srcDistance + destDistance - distanceBetween < w
-
-    */
+    (gradient(src), gradient(dest), distanceBetween(src, dest), width).aMapN:
+      case (gs, gd, d, w) => gs + gd - d < w

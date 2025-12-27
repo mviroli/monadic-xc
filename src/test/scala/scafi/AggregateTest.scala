@@ -277,7 +277,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0,0)) -> 1.1))),
         default = 1.0)
       .asDistributedSystem:
-        gradient(sensor(bind("src")))(using sensor(bind("nbrRange")))
+        gradient2(sensor(bind("src")))(using sensor(bind("nbrRange")))
 
     Seq(
       place((1, 0)) -> Double.PositiveInfinity,
@@ -308,7 +308,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
         default = 1.0)
       .asDistributedSystem:
-        broadcast(sensor(bind("src")))(sensor(bind("src")))(using sensor(bind("nbrRange")))
+        broadcast2(sensor(bind("src")))(sensor(bind("src")))(using sensor(bind("nbrRange")))
 
     Seq(
       place((1, 0)) -> (Double.PositiveInfinity -> false),
@@ -365,7 +365,7 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         default = 1.0)
       .asDistributedSystem:
         given range: Aggregate[Double] = sensor(bind("nbrRange"))
-        channel(sensor(bind("src")), sensor(bind("dest")),0.3)
+        channel2(sensor(bind("src")), sensor(bind("dest")),0.3)
 
     (1 to 100) foreach (_ => ds.randomFire())
     place.topology.keys.toSet.filter(ds.fire(_).top.asValue).map(place(_)) shouldBe Set((1, 2), (1, 1), (1, 0))
