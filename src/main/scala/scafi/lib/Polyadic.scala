@@ -33,7 +33,8 @@ object Polyadic:
     def sequence(t: F[H] *: T)(using F: Applicative[F]): F[H *: Tuple.InverseMap[T, F]] =
       F.ap(F.ap(F.pure((hh: H) => (tt: Tuple.InverseMap[T, F]) => hh *: tt))(t.head))(tailTA.sequence(t.tail))
 
-  def mapN[F[_], T <: Tuple, Z](t: T)(f: Tuple.InverseMap[T, F] => Z)(using
+  extension [T <: Tuple, Z](t: T)
+    def mapN[F[_]](f: Tuple.InverseMap[T, F] => Z)(using
                                                  F: Applicative[F],
                                                  TA: TupleApplicative[F, T]
   ): F[Z] =
@@ -55,4 +56,4 @@ object Polyadic:
       def ap[A, B](ff: Option[A => B])(fa: Option[A]): Option[B] = ff.flatMap(f => fa.map(a => f(a)))
 
     println(map3(Option(1), Option(2), Option(3))(_ + _ > _))
-    println(mapN[Option, Option[Int] *: Option[Int] *: Option[Boolean] *: EmptyTuple, Boolean](Option(1), Option(2), Option(true))((a: Int, b: Int, c: Boolean) => a > b && c))
+    println((Option(1), Option(2), Option(true)).mapN[Option](_ > _ && _))
