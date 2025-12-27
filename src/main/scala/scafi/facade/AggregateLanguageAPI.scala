@@ -18,6 +18,8 @@ trait AggregateLanguageAPI:
   def compute[A](a: NValue[A]): Aggregate[A]
   def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A]
   def exchange[A](a: Aggregate[A])(f: NValue[A] => (Aggregate[A], Aggregate[A])): Aggregate[A]
+  def fold[A](init: Aggregate[A])(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A]
+  def self[A](a: Aggregate[A]): Aggregate[A]
 
   type NValue[_]
   given monadNValue: Monad[NValue]
@@ -39,6 +41,17 @@ trait AggregateLanguage extends AggregateLanguageAPI:
   export NValueConstructs.NValue
   export NValueConstructs.{nself, selfValue, nfold}
   export NValueConstructs.given
+
+  def fold[A](init: Aggregate[A])(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
+    for 
+      i <- init
+      v <- a
+    yield nfold(i.selfValue)(op)(v)  
+  def self[A](a: Aggregate[A]): Aggregate[A] =
+    for 
+      v <- a
+    yield nself(v)  
+
 
   override given monadNValue: Monad[NValue] = NValueConstructs.nvalueAggregate
 

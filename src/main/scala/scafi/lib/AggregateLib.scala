@@ -37,16 +37,16 @@ object AggregateLib:
   def hopGradient(src: Aggregate[Boolean]): Aggregate[Int] =
     retsend(Int.MaxValue): v =>
       mux(src)(0):
-        nfold(Int.MaxValue)(_ min _):
+        fold(Int.MaxValue)(_ min _):
           v.map(n => if n == Int.MaxValue then n else n + 1)
 
   def gradient(src: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
     retsend(Double.PositiveInfinity): v =>
       mux(src)(0.0):
-        for
-          d <- range
-        yield nfold(Double.PositiveInfinity)(_ min _):
+        fold(Double.PositiveInfinity)(_ min _):
           for
+            d <- range
+          yield for
             range <- d
             current <- v
           yield current + range
@@ -55,54 +55,31 @@ object AggregateLib:
   extension [A](dv: (Double, A)) def min(dv2: (Double, A)): (Double, A) = if dv._1 < dv2._1 then dv else dv2
   extension [A](a: Aggregate[A]) def deepMap[B](f: A => B): Aggregate[B] = a.map(_.map(f))
 
-  def fold[A](init: Aggregate[A])(op: (A,A) => A)(element: Aggregate[A]): Aggregate[A] =
-    for
-      i <- init
-      e <- element
-    yield nfold(i.selfValue)(op)(e)
-
-
   def broadcast[A](src: Aggregate[Boolean])(field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
     retsend(field.deepMap(Double.PositiveInfinity -> _)): v =>
       mux(src)(field.deepMap(0.0 -> _)):
-        for
-          fieldNV <- field
-          distanceNV <- range
-        yield
-          nfold(Double.PositiveInfinity -> fieldNV.selfValue)(_ min _):
-            for
+        fold(field.deepMap(Double.PositiveInfinity -> _))(_ min _):
+          for
+            fieldNV <- field
+            distanceNV <- range
+          yield for
               rangeV <- distanceNV
               distanceV <- v.map(_._1)
               fieldV <- v.map(_._2)
-            yield distanceV + rangeV -> fieldV
-
-  /*
-  def map3NV[A,B,C,D](a: NValue[A], b: NValue[B], c: NValue[C])(f: (A, B, C) => D): NValue[D] =
-    for a1 <- a; b1 <- b; c1 <- c yield f(a1,b1,c1)
-
-  def gradcast2[A](src: Aggregate[Boolean], distance: Aggregate[Double])(field: Aggregate[A]): Aggregate[(Double, A)] =
-    def init(d: Double) = field.deepMap(d -> _)
-    retsend(init(Double.PositiveInfinity)): v =>
-      mux(src)(init(0)):
-         fold(init(Double.PositiveInfinity))(_ min _):
-            distance.map:
-              map3NV(_, v.map(_._1), v.map(_._2)): (dist, rng, value) =>
-                dist + rng -> value
-*/
+          yield distanceV + rangeV -> fieldV
 
   def gradcast[A](src: Aggregate[Boolean])(op: (A, Double) => A, field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
     retsend(field.deepMap(Double.PositiveInfinity -> _)): v =>
       mux(src)(field.deepMap(0.0 -> _)):
-        for
-          fieldNV <- field
-          distanceNV <- range
-        yield
-          nfold(Double.PositiveInfinity -> fieldNV.selfValue)(_ min _):
-            for
-              rangeV <- distanceNV
-              distanceV <- v.map(_._1)
-              fieldV <- v.map(_._2)
-            yield distanceV + rangeV -> op(fieldV, distanceV + rangeV)
+        fold(field.deepMap(Double.PositiveInfinity -> _))(_ min _):
+          for
+            fieldNV <- field
+            distanceNV <- range
+          yield for
+            rangeV <- distanceNV
+            distanceV <- v.map(_._1)
+            fieldV <- v.map(_._2)
+          yield distanceV + rangeV -> op(fieldV, distanceV + rangeV)
 
   def distanceBetween(src: Aggregate[Boolean], dest: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
     broadcast(src)(gradient(dest)).deepMap(_._2)
