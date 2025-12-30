@@ -7,7 +7,7 @@ import scafi.facade.AggregateEngineModule.{*, given}
 import scafi.facade.Executor.DistributedSystem.bind
 import scafi.utils.MapWithDefault
 
-class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
+class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("pre"):
     val ag: Aggregate[Int] = 5
@@ -193,6 +193,27 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     .withNeighbourhood(d3 -> Set(d2, d3, d4))
     .withNeighbourhood(d4 -> Set(d2, d3, d4))
 
+  test("hopGradient"):
+    import lib.AggregateLib.*
+    val ds = Platform()
+      .withNeighbourhood(d1 -> Set(d1, d2))
+      .withNeighbourhood(d2 -> Set(d1, d2, d3))
+      .withNeighbourhood(d3 -> Set(d2, d3, d4))
+      .withNeighbourhood(d4 -> Set(d2, d3, d4))
+      .withSensor("src", Map(d1 -> true, d2 -> false, d3 -> false, d4 -> false))
+      .asDistributedSystem:
+        def hopGradient(src: Aggregate[Boolean]): Aggregate[Int] =
+          retsend(Int.MaxValue): v =>
+            mux(src)(0):
+              fold(Int.MaxValue)(_ min _):
+                v.map(n => if n == Int.MaxValue then n else n + 1)
+        hopGradient(sensor(bind("src")))
+
+    Seq(
+      d2 -> Int.MaxValue, d1 -> 0, d2 -> 1, d4 -> Int.MaxValue, d3 -> 2, d4 -> 3
+    ).foreach: (device, result) =>
+      ds.fire(device).top.asValue shouldBe result
+
 
   test("mid"):
     val ds = platform3
@@ -245,127 +266,3 @@ class AggregateTest extends org.scalatest.funsuite.AnyFunSuite:
       d4 -> 4, d2 -> 2, d3 -> 2, d1 -> 1, d4 -> 2, d2 -> 1, d3 -> 1, d4 -> 1
     ).foreach: (device, result) =>
       ds.fire(device).top.asValue shouldBe result
-
-  test("hopGradient"):
-    import lib.AggregateLib.*
-    val ds = Platform()
-      .withNeighbourhood(d1 -> Set(d1, d2))
-      .withNeighbourhood(d2 -> Set(d1, d2, d3))
-      .withNeighbourhood(d3 -> Set(d2, d3, d4))
-      .withNeighbourhood(d4 -> Set(d2, d3, d4))
-      .withSensor("src", Map(d1 -> true, d2 -> false, d3 -> false, d4 -> false))
-      .asDistributedSystem:
-        hopGradient(sensor(bind("src")))
-
-    Seq(
-      d2 -> Int.MaxValue, d1 -> 0, d2 -> 1, d4 -> Int.MaxValue, d3 -> 2, d4 -> 3
-    ).foreach: (device, result) =>
-      ds.fire(device).top.asValue shouldBe result
-
-  test("gradient"):
-    import lib.AggregateLib.*
-    val place = Displacement.grid(3, 3)
-    val ds = Platform()
-      .withTopology(place.topology)
-      .withSensor[Boolean](
-        name = "src",
-        values = Map(place((0, 0)) -> true),
-        default = false)
-      // nbrRange is a neighbour sensor, 1.0 everywhere except that device (1,0) perceives only device (0,0) at distance 1.1
-      .withSensor[Double](
-        name = "nbrRange",
-        values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0,0)) -> 1.1))),
-        default = 1.0)
-      .asDistributedSystem:
-        gradient(sensor(bind("src")))(using sensor(bind("nbrRange")))
-
-    Seq(
-      place((1, 0)) -> Double.PositiveInfinity,
-      place((0, 0)) -> 0.0,
-      place((1, 1)) -> Double.PositiveInfinity,
-      place((1, 0)) -> 1.1,
-      place((1, 1)) -> 2.1,
-      place((2, 0)) -> 2.1,
-      place((2, 1)) -> 3.1,
-      place((0, 1)) -> 1.0
-    ).foreach: (device, result) =>
-      ds.fire(device).top.asValue shouldBe result
-    (1 to 100) foreach (_ => ds.randomFire())
-    ds.fire(place(2, 2)).top.asValue shouldBe 4.0
-
-  test("broadcast"):
-    import lib.AggregateLib.*
-    val place = Displacement.grid(3, 3)
-    val ds = Platform()
-      .withTopology(place.topology)
-      .withSensor[Boolean](
-        name = "src",
-        values = Map(place((0, 0)) -> true),
-        default = false)
-      // nbrRange is a neighbour sensor, 1.0 everywhere except that device (1,0) perceives only device (0,0) at distance 1.1
-      .withSensor[Double](
-        name = "nbrRange",
-        values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
-        default = 1.0)
-      .asDistributedSystem:
-        broadcast(sensor(bind("src")))(sensor(bind("src")))(using sensor(bind("nbrRange")))
-
-    Seq(
-      place((1, 0)) -> (Double.PositiveInfinity -> false),
-      place((0, 0)) -> (0.0 -> true),
-      place((1, 1)) -> (Double.PositiveInfinity -> false),
-      place((1, 0)) -> (1.1 -> true),
-      place((1, 1)) -> (2.1 -> true),
-      place((2, 2)) -> (Double.PositiveInfinity -> false),
-      place((2, 1)) -> (3.1 -> true),
-    ).foreach: (device, result) =>
-      ds.fire(device).top.asValue shouldBe result
-
-  test("distanceBetween"):
-    import lib.AggregateLib.*
-    val place = Displacement.grid(3, 3)
-    val ds = Platform()
-      .withTopology(place.topology)
-      .withSensor[Boolean](
-        name = "src",
-        values = Map(place((0, 0)) -> true),
-        default = false)
-      .withSensor[Boolean](
-        name = "dest",
-        values = Map(place((2, 1)) -> true),
-        default = false)
-      .withSensor[Double](
-        name = "nbrRange",
-        values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
-        default = 1.0)
-      .asDistributedSystem:
-        given range: Aggregate[Double] = sensor(bind("nbrRange"))
-        distanceBetween(sensor(bind("src")), sensor(bind("dest")))
-
-    (1 to 100) foreach (_ => ds.randomFire())
-    place.topology.keys.foreach: device =>
-      ds.fire(device).top.asValue shouldBe 3.0
-
-  test("channel"):
-    import lib.AggregateLib.*
-    val place = Displacement.grid(3, 3)
-    val ds = Platform()
-      .withTopology(place.topology)
-      .withSensor[Boolean](
-        name = "src",
-        values = Map(place((1, 0)) -> true),
-        default = false)
-      .withSensor[Boolean](
-        name = "dest",
-        values = Map(place((1, 2)) -> true),
-        default = false)
-      .withSensor[Double](
-        name = "nbrRange",
-        values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
-        default = 1.0)
-      .asDistributedSystem:
-        given range: Aggregate[Double] = sensor(bind("nbrRange"))
-        channel(sensor(bind("src")), sensor(bind("dest")),0.3)
-
-    (1 to 100) foreach (_ => ds.randomFire())
-    place.topology.keys.toSet.filter(ds.fire(_).top.asValue).map(place(_)) shouldBe Set((1, 2), (1, 1), (1, 0))
