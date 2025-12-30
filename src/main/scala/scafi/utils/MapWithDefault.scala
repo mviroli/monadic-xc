@@ -12,7 +12,7 @@ object MapWithDefault:
   def apply[K, V](a: V, map: Map[K, V] = Map.empty): MapWithDefault[K, V] = new MapWithDefault(a, map.filterNot((_, v) => v == a))
   extension [K, V](a: V) def |>(e: (K, V)*): MapWithDefault[K, V] = apply(a, e.toMap)
 
-  import smonads.SMonads.*
+  import fplib.SMonads.*
   given [K]: Monad[[X] =>> MapWithDefault[K, X]] with
     override def pure[A](a: A): MapWithDefault[K, A] = MapWithDefault[K, A](a)
 

@@ -4,7 +4,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import scafi.facade.Executor.{*, given}
 import scafi.facade.AggregateEngineModule.{*, given}
-import scafi.facade.Executor.DistributedSystem.bind
+import scafi.facade.Executor.DistributedSystem.platformSensor
 import scafi.utils.MapWithDefault
 
 class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
@@ -207,7 +207,7 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
             mux(src)(0):
               fold(Int.MaxValue)(_ min _):
                 v.map(n => if n == Int.MaxValue then n else n + 1)
-        hopGradient(sensor(bind("src")))
+        hopGradient(platformSensor("src"))
 
     Seq(
       d2 -> Int.MaxValue, d1 -> 0, d2 -> 1, d4 -> Int.MaxValue, d3 -> 2, d4 -> 3
@@ -219,7 +219,7 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ds = platform3
       .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3))
       .asDistributedSystem[Int]:
-        sensor(bind("mid"))
+        platformSensor("mid")
     ds.fires(d1, d2, d2, d1, d2, d3).map(_.top.asValue) shouldBe List(1, 2, 2, 1, 2, 3)
 
   test("gatherMids"):
@@ -227,7 +227,7 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ds = platform3
       .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3))
       .asDistributedSystem[Set[Int]]:
-        def mid: Aggregate[Int] = sensor(bind("mid"))
+        def mid: Aggregate[Int] = platformSensor("mid")
         for
           m <- mid
           v <- nbr(mid)
@@ -239,7 +239,7 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ds = platformAdHoc
       .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3, d4 -> 4))
       .asDistributedSystem[Set[Int]]:
-        def mid: Aggregate[Int] = sensor(bind("mid"))
+        def mid: Aggregate[Int] = platformSensor("mid")
         def gossipEver[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
           for
             nva <- a
@@ -254,7 +254,7 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     val ds = platformAdHoc
       .withSensor("mid", Map(d1 -> 1, d2 -> 2, d3 -> 3, d4 -> 4))
       .asDistributedSystem:
-        def mid: Aggregate[Int] = sensor(bind("mid"))
+        def mid: Aggregate[Int] = platformSensor("mid")
         def gossipEver[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
           for
             nva <- a

@@ -7,7 +7,7 @@ package scafi.lib
 
 object AggregateApplicativeSyntax:
   import scafi.facade.AggregateLanguageModule.{*, given}
-  import smonads.Applicatives.*
+  import fplib.Applicatives.*
 
   given Applicative[Aggregate] with
     def pure[A](a: A): Aggregate[A] = compute(a)

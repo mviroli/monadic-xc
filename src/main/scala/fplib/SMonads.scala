@@ -1,4 +1,4 @@
-package smonads
+package fplib
 
 object SMonads:
   trait SMonad[M[_], C[_]]:

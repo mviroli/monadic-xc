@@ -3,7 +3,7 @@ package scafi
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
 import scafi.facade.AggregateEngineModule.{*, given}
-import scafi.facade.Executor.DistributedSystem.bind
+import scafi.facade.Executor.DistributedSystem.platformSensor
 import scafi.facade.Executor.{*, given}
 import scafi.utils.MapWithDefault
 
@@ -25,7 +25,7 @@ class AdvancedAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0,0)) -> 1.1))),
         default = 1.0)
       .asDistributedSystem:
-        gradient(sensor(bind("src")))(using sensor(bind("nbrRange")))
+        gradient(platformSensor("src"))(using platformSensor("nbrRange"))
 
     Seq(
       place((1, 0)) -> Double.PositiveInfinity,
@@ -56,7 +56,7 @@ class AdvancedAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
         default = 1.0)
       .asDistributedSystem:
-        broadcast(sensor(bind("src")))(sensor(bind("src")))(using sensor(bind("nbrRange")))
+        broadcast(platformSensor("src"))(platformSensor("src"))(using platformSensor("nbrRange"))
 
     Seq(
       place((1, 0)) -> (Double.PositiveInfinity -> false),
@@ -87,8 +87,8 @@ class AdvancedAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
         default = 1.0)
       .asDistributedSystem:
-        given range: Aggregate[Double] = sensor(bind("nbrRange"))
-        distanceBetween(sensor(bind("src")), sensor(bind("dest")))
+        given range: Aggregate[Double] = platformSensor("nbrRange")
+        distanceBetween(platformSensor("src"), platformSensor("dest"))
 
     (1 to 100) foreach (_ => ds.randomFire())
     place.topology.keys.foreach: device =>
@@ -112,8 +112,8 @@ class AdvancedAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         values = Map(place((1, 0)) -> MapWithDefault(1.0, Map(place((0, 0)) -> 1.1))),
         default = 1.0)
       .asDistributedSystem:
-        given range: Aggregate[Double] = sensor(bind("nbrRange"))
-        channel(sensor(bind("src")), sensor(bind("dest")),0.3)
+        given range: Aggregate[Double] = platformSensor("nbrRange")
+        channel(platformSensor("src"), platformSensor("dest"),0.3)
 
     (1 to 100) foreach (_ => ds.randomFire())
     place.topology.keys.toSet.filter(ds.fire(_).top.asValue).map(place(_)) shouldBe Set((1, 2), (1, 1), (1, 0))

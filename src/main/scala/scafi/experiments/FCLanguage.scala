@@ -3,7 +3,7 @@ package scafi.experiments
 import scafi.core.NValueConstructs.NValue
 import scafi.facade.{AggregateEngine, AggregateEngineAPI}
 import scafi.utils.MapWithDefault
-import smonads.SMonads.*
+import fplib.SMonads.*
 
 trait FCLanguage:
   type Field[_]

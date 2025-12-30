@@ -1,4 +1,4 @@
-package smonads
+package fplib
 
 object Applicatives:
 

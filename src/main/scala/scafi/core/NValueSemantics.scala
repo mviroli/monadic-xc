@@ -1,6 +1,6 @@
 package scafi.core
 
-import smonads.FreeSMonads.*
+import fplib.FreeSMonads.*
 import NValueConstructs.{*, given}
 import Environments.*
 

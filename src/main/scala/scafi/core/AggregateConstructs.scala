@@ -5,7 +5,7 @@ package scafi.core
  */
 
 object AggregateConstructs:
-  import smonads.FreeSMonads.{*, given}
+  import fplib.FreeSMonads.{*, given}
   export NValueConstructs.{*, given}
   export Aggregate.{*, given}
 

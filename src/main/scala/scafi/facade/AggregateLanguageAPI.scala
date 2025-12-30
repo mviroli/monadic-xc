@@ -1,5 +1,5 @@
 package scafi.facade
-import smonads.SMonads.*
+import fplib.SMonads.*
 
 /**
  *  The facade to the API includes:
@@ -34,7 +34,7 @@ trait AggregateLanguage extends AggregateLanguageAPI:
   export AggregateConstructs.Aggregate
   export AggregateConstructs.{sensor, compute, call, exchange}
   export AggregateConstructs.Aggregate.{fromValue, fromNValue}
-  import smonads.FreeSMonads.*
+  import fplib.FreeSMonads.*
 
   override given monadAggregate: SMonad[Aggregate, NValue] = AggregateConstructs.monadAggregate
 

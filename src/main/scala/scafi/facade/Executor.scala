@@ -84,8 +84,9 @@ object Executor:
       randomDevice -> fire(randomDevice)
 
   object DistributedSystem:
-    def bind[A, B](name: String): DistributedSystem[B] ?=> NValue[A] =
-      summon[DistributedSystem[B]].platform.ssns(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[NValue[A]]
+    def platformSensor[A, B](name: String): DistributedSystem[B] ?=> Aggregate[A] =
+      sensor:
+        summon[DistributedSystem[B]].platform.ssns(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[NValue[A]]
 
 
 
