@@ -40,7 +40,33 @@ object AggregateLib:
         fold(Int.MaxValue)(_ min _):
           v.map(n => if n == Int.MaxValue then n else n + 1)
 
+  import AggregateApplicativeSyntax.*
+
   def gradient(src: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
+    retsend(Double.PositiveInfinity): v =>
+      mux(src)(0.0):
+        fold(Double.PositiveInfinity)(_ min _):
+          (range, compute(v)).aMapN(_ + _)
+
+
+  def broadcast[A](src: Aggregate[Boolean])(field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
+    extension [A](dv: (Double, A))
+      def min(dv2: (Double, A)): (Double, A) = if dv._1 < dv2._1 then dv else dv2
+    retsend(field.aMapN(Double.PositiveInfinity -> _)): dv =>
+      mux(src)(field.aMapN(0.0 -> _)):
+        fold(field.aMapN(Double.PositiveInfinity -> _))(_ min _):
+          (compute(dv), range).aMapN:
+            case (distval, rng) => distval._1 + rng -> distval._2
+
+  def distanceBetween(src: Aggregate[Boolean], dest: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
+    broadcast(src)(gradient(dest)).aMapN(_._2)
+
+  def channel(src: Aggregate[Boolean], dest: Aggregate[Boolean], width: Aggregate[Double])(using range: Aggregate[Double]): Aggregate[Boolean] =
+    (gradient(src), gradient(dest), distanceBetween(src, dest), width).aMapN:
+      case (gs, gd, d, w) => gs + gd - d < w
+
+/*
+def gradient(src: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
     retsend(Double.PositiveInfinity): v =>
       mux(src)(0.0):
         fold(Double.PositiveInfinity)(_ min _):
@@ -52,7 +78,7 @@ object AggregateLib:
           yield current + range
 
 
-  extension [A](dv: (Double, A)) def min(dv2: (Double, A)): (Double, A) = if dv._1 < dv2._1 then dv else dv2
+
   extension [A](a: Aggregate[A]) def deepMap[B](f: A => B): Aggregate[B] = a.map(_.map(f))
 
   def broadcast[A](src: Aggregate[Boolean])(field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
@@ -96,46 +122,4 @@ object AggregateLib:
       distanceBetweenV <- distanceBetweenNV
       widthV <- widthNV
     yield srcDistanceV + destDistanceV - distanceBetweenV < widthV
-
-  import Polyadic.*
-
-  given Applicative[Aggregate] with
-    def pure[A](a: A): Aggregate[A] = compute(a)
-
-    def ap[A, B](ff: Aggregate[A => B])(fa: Aggregate[A]): Aggregate[B] =
-      for
-        ffNV <- ff
-        faNV <- fa
-      yield for
-        ffV <- ffNV
-        faV <- faNV
-      yield ffV(faV)
-
-  extension [T <: Tuple, Z](t: T)
-
-    def aMapN(f: Tuple.InverseMap[T, Aggregate] => Z) =
-      t.mapN[Aggregate](f)
-
-  extension [A](a: Aggregate[A])
-    def aMapN[B](f: A => B) =
-      a.map(_.map(f))
-
-  def gradient2(src: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
-    retsend(Double.PositiveInfinity): v =>
-      mux(src)(0.0):
-        fold(Double.PositiveInfinity)(_ min _):
-          (range, compute(v)).aMapN(_ + _)
-
-  def broadcast2[A](src: Aggregate[Boolean])(field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
-    retsend(field.aMapN(Double.PositiveInfinity -> _)): dv =>
-      mux(src)(field.aMapN(0.0 -> _)):
-        fold(field.aMapN(Double.PositiveInfinity -> _))(_ min _):
-          (compute(dv), range).aMapN:
-            case (distval, rng) => distval._1 + rng -> distval._2
-
-  def distanceBetween2(src: Aggregate[Boolean], dest: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
-    broadcast(src)(gradient(dest)).aMapN(_._2)
-
-  def channel2(src: Aggregate[Boolean], dest: Aggregate[Boolean], width: Aggregate[Double])(using range: Aggregate[Double]): Aggregate[Boolean] =
-    (gradient(src), gradient(dest), distanceBetween(src, dest), width).aMapN:
-      case (gs, gd, d, w) => gs + gd - d < w
+*/
