@@ -1,9 +1,9 @@
-package scafi.experiments
+package scafifc_experimental
 
+import fplib.SMonads.*
 import scafi.core.NValueConstructs.NValue
 import scafi.facade.{AggregateEngine, AggregateEngineAPI}
 import scafi.utils.MapWithDefault
-import fplib.SMonads.*
 
 trait FCLanguage:
   type Field[_]
@@ -27,7 +27,7 @@ trait FCLanguage:
 
 
 trait FCLanguageImpl extends FCLanguage:
-  import scafi.facade.{AggregateLanguageModule => ALM}
+  import scafi.facade.AggregateLanguageModule as ALM
 
   override type Field[A] = ALM.Aggregate[A]
   given monadField: Monad[Field] with

@@ -1,8 +1,8 @@
-package scafi
+package scafifc_experimantal
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import scafi.experiments.FCEngineModule.{*, given}
+import scafifc_experimental.FCEngineModule.{*, given}
 import scafi.facade.Executor.*
 import scafi.facade.Executor.DistributedSystem.platformSensor
 import scafi.utils.MapWithDefault
