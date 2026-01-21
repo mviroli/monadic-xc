@@ -1,4 +1,4 @@
-package scafi.facadeMoandXc
+package scafi.facadeMonadXC
 
 import scafi.utils.MapWithDefault
 

@@ -1,4 +1,4 @@
-package scafi.facadeMoandXc
+package scafi.facadeMonadXC
 
 import fplib.SMonads.*
 import scafi.core
@@ -16,7 +16,7 @@ trait AggregateLanguageAPI:
 
   given fromValue[A]: Conversion[A, Aggregate[A]]
   given fromNValue[A]: Conversion[NValue[A], Aggregate[A]]
-  def sensor[A](a: => Aggregate[A]): Aggregate[A]
+  def sensor[A](a: => A): Aggregate[A]
   def compute[A](a: A): Aggregate[A]
   def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A]
   def exchange[A](a: Aggregate[A])(f: Aggregate[A] => (Aggregate[A], Aggregate[A])): Aggregate[A]
@@ -33,8 +33,8 @@ trait AggregateLanguageAPI:
 
 trait AggregateLanguage extends AggregateLanguageAPI:
   import scafi.core.*
-  export AggregateConstructs.Aggregate
   export AggregateConstructs.Aggregate.{fromValue, fromNValue}
+  export AggregateConstructs.Aggregate
   import fplib.FreeSMonads.*
 
   override given monadAggregate: SMonad[Aggregate, NValue] = AggregateConstructs.monadAggregate
@@ -45,7 +45,7 @@ trait AggregateLanguage extends AggregateLanguageAPI:
 
   import NValueConstructs.{nself, nfold}
 
-  def sensor[A](a: => Aggregate[A]): Aggregate[A] = a.flatMap(Aggregate.sensor(_))
+  def sensor[A](a: => A): Aggregate[A] = Aggregate.sensor(a)
 
   def compute[A](a: A): Aggregate[A] = Aggregate.compute(a)
 
