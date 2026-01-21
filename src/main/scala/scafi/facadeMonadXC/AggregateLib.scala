@@ -9,43 +9,44 @@ object AggregateLib:
   import scafi.facadeMonadXC.AggregateLanguageModule.{*, given}
   import AggregateApplicativeSyntax.*
 
-  def retsend[A](a: Aggregate[A])(f: Aggregate[A] => Aggregate[A]): Aggregate[A] =
+
+  def retsend[A](a: XC[A])(f: XC[A] => XC[A]): XC[A] =
     exchange(a)(v => (f(v), f(v)))
 
-  def rep[A](a: Aggregate[A])(f: Aggregate[A] => Aggregate[A]): Aggregate[A] =
+  def rep[A](a: XC[A])(f: XC[A] => XC[A]): XC[A] =
     retsend(a)(x => f(self(x)))
 
-  def nbr[A](a: Aggregate[A]): Aggregate[A] =
+  def nbr[A](a: XC[A]): XC[A] =
     exchange(a)(v => (v, a))
 
-  def counter(initial: Int) =
-    rep(initial)(_.aMapN(_+1))
+  def counter(initial: Int): XC[Int] =
+    rep(compute(initial))(_.aMapN(_+1))
 
-  def mux[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+  def mux[A](b: XC[Boolean])(th: XC[A])(el: XC[A]): XC[A] =
     for
       cond <- b
       t <- th
       e <- el
     yield if cond.selfValue then t else e
 
-  def branch[A](cond: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+  def branch[A](cond: XC[Boolean])(th: XC[A])(el: XC[A]): XC[A] =
     call:
       mux(cond)(() => th)(() => el)
 
-  def hopGradient(src: Aggregate[Boolean]): Aggregate[Int] =
+  def hopGradient(src: XC[Boolean]): XC[Int] =
     retsend(Int.MaxValue): v =>
       mux(src)(0):
         fold(Int.MaxValue)(_ min _):
           v.aMapN(n => if n == Int.MaxValue then n else n + 1)
 
-  def gradient(src: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
+  def gradient(src: XC[Boolean])(using range: XC[Double]): XC[Double] =
     retsend(Double.PositiveInfinity): v =>
       mux(src)(0.0):
         fold(Double.PositiveInfinity)(_ min _):
           (range, v).aMapN(_ + _)
 
 
-  def broadcast[A](src: Aggregate[Boolean])(field: Aggregate[A])(using range: Aggregate[Double]): Aggregate[(Double, A)] =
+  def broadcast[A](src: XC[Boolean])(field: XC[A])(using range: XC[Double]): XC[(Double, A)] =
     extension [A](dv: (Double, A))
       def min(dv2: (Double, A)): (Double, A) = if dv._1 < dv2._1 then dv else dv2
     retsend(field.aMapN(Double.PositiveInfinity -> _)): dv =>
@@ -54,9 +55,9 @@ object AggregateLib:
           (dv, range).aMapN:
             case (distval, rng) => distval._1 + rng -> distval._2
 
-  def distanceBetween(src: Aggregate[Boolean], dest: Aggregate[Boolean])(using range: Aggregate[Double]): Aggregate[Double] =
+  def distanceBetween(src: XC[Boolean], dest: XC[Boolean])(using range: XC[Double]): XC[Double] =
     broadcast(src)(gradient(dest)).aMapN(_._2)
 
-  def channel(src: Aggregate[Boolean], dest: Aggregate[Boolean], width: Aggregate[Double])(using range: Aggregate[Double]): Aggregate[Boolean] =
+  def channel(src: XC[Boolean], dest: XC[Boolean], width: XC[Double])(using range: XC[Double]): XC[Boolean] =
     (gradient(src), gradient(dest), distanceBetween(src, dest), width).aMapN:
       case (gs, gd, d, w) => gs + gd - d < w

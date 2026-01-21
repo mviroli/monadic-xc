@@ -12,27 +12,22 @@ import scafi.facadeMonadXC.AggregateApplicativeSyntax.*
 class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("pre"):
-    val ag: Aggregate[Int] = 5
+    val ag: XC[Int] = 5
     ag.evalOne(using selfDevice)()
 
 
   test("value"):
-    val ag: Aggregate[Int] = 5
-    ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
-
-  test("operation on value"):
-    val nv: NValue[Int] = 4
-    val ag: Aggregate[Int] = for n <- nv yield n + 1
+    val ag: XC[Int] = 5
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("operation on constant"):
-    val ag1: Aggregate[Int] = 4
-    val ag: Aggregate[Int] = for n <- ag1 yield for v <- n yield v + 1
+    val ag1: XC[Int] = 4
+    val ag: XC[Int] = for n <- ag1 yield for v <- n yield v + 1
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(5, 5, 5, 5)
 
   test("sensor"):
     var sns = true
-    val ag: Aggregate[Boolean] = sensor(sns)
+    val ag: XC[Boolean] = sensor(sns)
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(true, true, true, true)
     sns = false
     ag.repeat().take(4).map(_.top.asValue) shouldBe List(false, false, false, false)

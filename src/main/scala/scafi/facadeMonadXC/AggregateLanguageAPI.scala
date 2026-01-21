@@ -11,33 +11,31 @@ import scafi.core
  */
 
 trait AggregateLanguageAPI:
-  type Aggregate[_]
-  given monadAggregate: SMonad[Aggregate, NValue]
+  type XC[_]
+  given monadAggregate: SMonad[XC, NValue]
 
-  given fromValue[A]: Conversion[A, Aggregate[A]]
-  given fromNValue[A]: Conversion[NValue[A], Aggregate[A]]
-  def sensor[A](a: => A): Aggregate[A]
-  def compute[A](a: A): Aggregate[A]
-  def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A]
-  def exchange[A](a: Aggregate[A])(f: Aggregate[A] => (Aggregate[A], Aggregate[A])): Aggregate[A]
-  def fold[A](init: Aggregate[A])(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A]
-  def self[A](a: Aggregate[A]): Aggregate[A]
+  given fromValue[A]: Conversion[A, XC[A]]
+  given fromNValue[A]: Conversion[NValue[A], XC[A]]
+  def sensor[A](a: => A): XC[A]
+  def compute[A](a: A): XC[A]
+  def call[A](f: XC[() => XC[A]]): XC[A]
+  def exchange[A](a: XC[A])(f: XC[A] => (XC[A], XC[A])): XC[A]
+  def fold[A](init: XC[A])(op: (A, A) => A)(a: XC[A]): XC[A]
+  def self[A](a: XC[A]): XC[A]
 
   type NValue[_]
   given monadNValue: Monad[NValue]
 
-  given toNValue[A]: Conversion[A, NValue[A]]
-  //def nself[A](a: NValue[A]): NValue[A]
-  //def nfold[A](init: A)(op: (A, A) => A)(a: NValue[A]): NValue[A]
-  //extension [A](nv: Aggregate[A]) def selfValue: A
 
 trait AggregateLanguage extends AggregateLanguageAPI:
   import scafi.core.*
-  export AggregateConstructs.Aggregate.{fromValue, fromNValue}
+  override type XC[A] = Aggregate[A]
   export AggregateConstructs.Aggregate
   import fplib.FreeSMonads.*
 
-  override given monadAggregate: SMonad[Aggregate, NValue] = AggregateConstructs.monadAggregate
+  override given monadAggregate: SMonad[XC, NValue] = AggregateConstructs.monadAggregate
+  override given fromValue[A]: Conversion[A, XC[A]] = AggregateConstructs.Aggregate.fromValue
+  override given fromNValue[A]: Conversion[NValue[A], XC[A]] = AggregateConstructs.Aggregate.fromNValue
 
   export NValueConstructs.NValue
   export NValueConstructs.{selfValue}
@@ -45,22 +43,22 @@ trait AggregateLanguage extends AggregateLanguageAPI:
 
   import NValueConstructs.{nself, nfold}
 
-  def sensor[A](a: => A): Aggregate[A] = Aggregate.sensor(a)
+  def sensor[A](a: => A): XC[A] = Aggregate.sensor(a)
 
-  def compute[A](a: A): Aggregate[A] = Aggregate.compute(a)
+  def compute[A](a: A): XC[A] = Aggregate.compute(a)
 
-  def call[A](f: Aggregate[() => Aggregate[A]]): Aggregate[A] = Aggregate.call(f)
+  def call[A](f: XC[() => XC[A]]): XC[A] = Aggregate.call(f)
 
-  def exchange[A](a: Aggregate[A])(f: Aggregate[A] => (Aggregate[A], Aggregate[A])): Aggregate[A] =
+  def exchange[A](a: XC[A])(f: XC[A] => (XC[A], XC[A])): XC[A] =
     Aggregate.exchange(a)(nv => f(nv))
 
-  def fold[A](init: Aggregate[A])(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
+  def fold[A](init: XC[A])(op: (A, A) => A)(a: XC[A]): XC[A] =
     for
       i <- init
       v <- a
     yield nfold(i.selfValue)(op)(v)
 
-  def self[A](a: Aggregate[A]): Aggregate[A] =
+  def self[A](a: XC[A]): XC[A] =
     for 
       v <- a
     yield nself(v)

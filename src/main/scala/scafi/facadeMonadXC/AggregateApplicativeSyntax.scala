@@ -9,10 +9,10 @@ object AggregateApplicativeSyntax:
   import fplib.Applicatives.*
   import scafi.facadeMonadXC.AggregateLanguageModule.{*, given}
 
-  given Applicative[Aggregate] with
-    def pure[A](a: A): Aggregate[A] = compute(a)
+  given Applicative[XC] with
+    def pure[A](a: A): XC[A] = compute(a)
 
-    def ap[A, B](ff: Aggregate[A => B])(fa: Aggregate[A]): Aggregate[B] =
+    def ap[A, B](ff: XC[A => B])(fa: XC[A]): XC[B] =
       for
         ffNV <- ff
         faNV <- fa
@@ -23,9 +23,9 @@ object AggregateApplicativeSyntax:
 
   extension [T <: Tuple, Z](t: T)
 
-    def aMapN(f: Tuple.InverseMap[T, Aggregate] => Z) =
-      t.mapN[Aggregate](f)
+    def aMapN(f: Tuple.InverseMap[T, XC] => Z) =
+      t.mapN[XC](f)
 
-  extension [A](a: Aggregate[A])
+  extension [A](a: XC[A])
     def aMapN[B](f: A => B) =
       a.map(_.map(f))
