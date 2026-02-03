@@ -202,7 +202,6 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
         def gossipEver[A](init: A)(op: (A, A) => A)(a: Aggregate[A]): Aggregate[A] =
           retsend[A](init)(v => fold( (self(v), self(a)).aMapN(op(_,_)))(op)(v))
         gossipEver[Int](Int.MaxValue)(_ min _)(mid)
-        //retsend[A](init)(v => nfold(op(v.selfValue, nva.selfValue))(op)(v))
 
     Seq(
       d4 -> 4, d2 -> 2, d3 -> 2, d1 -> 1, d4 -> 2, d2 -> 1, d3 -> 1, d4 -> 1
