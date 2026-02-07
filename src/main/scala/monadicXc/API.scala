@@ -21,35 +21,44 @@ trait API:
   given ma: Monad[Aggregate]
   given pureConversion[A]: Conversion[A, Aggregate[A]] = ma.pure
 
-  def exchange[A](n: NValue[A])(f: NValue[A] => Aggregate[(NValue[A], NValue[A])]): Aggregate[NValue[A]]
-  def branch[A](b: Boolean)(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A]
-  def fold[A](initial: A)(op: (A, A) => A)(v: NValue[A]): Aggregate[A]
-  def self[A](a: NValue[A]): Aggregate[A]
+  def exchange[A](n: =>NValue[A])(f: NValue[A] => Aggregate[(NValue[A], NValue[A])]): Aggregate[NValue[A]]
+  def branch[A](b: =>Boolean)(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A]
+  def fold[A](initial: =>A)(op: (A, A) => A)(v: =>NValue[A]): Aggregate[A]
+  def self[A](a: =>NValue[A]): Aggregate[A]
+  def sensor[A](a: () => A): Aggregate[A]
 
 trait Engine:
   // engine abstract concepts
   type Device
-  type NValue[+A] = PartialFunction[Device, A]
+  case class NValue[+A](a: A, map: Map[Device, A] = Map()):
+    def apply(device: Device): A =
+      if map.contains(device) then map(device) else a
+
   type Message
   type Context = Map[Device, Message]
 
   trait Aggregate[A]:
     def run: Device => Context => (Context, A, Message)
 
-object Framework extends Engine with API:
+trait Framework extends Engine with API:
   // untested, very partial implementation
 
   override opaque type Device = Int
+  val selfDevice: Device = 0
+  private var currentDevice: Device = 1
+  def newCounter: Device = try currentDevice finally currentDevice = currentDevice + 1
+
   extension [A](nv: NValue[A])
-    override def nvMap[B](f: A => B): NValue[B] = d => f(nv(d))
+    override def nvMap[B](f: A => B): NValue[B] = NValue(f(nv.a), nv.map.map((k, v) => (k,f(v))))
+    def update(map: Map[Device, A]): NValue[A] = NValue(nv.a, nv.map ++ map)
   extension [A, B](nv2: (NValue[A], NValue[B]))
-    override def nvMap2[C](f: (A, B) => C): NValue[C] = d => f(nv2._1(d), nv2._2(d))
-  given toNValue[A]: Conversion[A, NValue[A]] = a => _ => a
+    override def nvMap2[C](f: (A, B) => C): NValue[C] =
+      NValue(f(nv2._1.a, nv2._2.a),
+        (nv2._1.map.keySet ++ nv2._2.map.keySet).map(device => (device, f(nv2._1(device), nv2._2(device)))).toMap)
+  given toNValue[A]: Conversion[A, NValue[A]] = NValue(_)
 
   override opaque type Message = Seq[Path]
-  trait Path:
-    def node: Node
-    def message: Message
+  case class Path(node: Node, message: Seq[Path])
   enum Node:
     case XC[A](nv: NValue[A])
     case IF(b: Boolean)
@@ -69,21 +78,34 @@ object Framework extends Engine with API:
             val (c2, a2, m2) = f(a1).run(d)(c1)
             (c2, a2, m1 ++ m2)
 
-  def exchange[A](n: NValue[A])(f: NValue[A] => Aggregate[(NValue[A], NValue[A])]): Aggregate[NValue[A]] = ???
-  def branch[A](b: Boolean)(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] = ???
-  def fold[A](initial: A)(op: (A, A) => A)(v: NValue[A]): Aggregate[A] = AggregateImpl:
-    d => c =>
-      (c, (c.keySet - d).toList.map(dev => v(dev)) .fold(initial)(op), Seq())
+  def exchange[A](n: =>NValue[A])(f: NValue[A] => Aggregate[(NValue[A], NValue[A])]): Aggregate[NValue[A]] =
+    AggregateImpl: dself =>
+      c =>
+        val c2v = c.view.mapValues { case Path(Node.XC(ni: NValue[A]), mi) :: mi2 => (ni, mi, mi2) }
+        val nxc = n.update(c2v.mapValues( (ni, _, _) => ni(dself)).toMap)
+        val (c3, (nr, ns), m3) = f(nxc).run(dself)(c2v.mapValues((_, mi, _) => mi).toMap)
+        //println(s"$c ${(c2v.mapValues((_, _, mi2) => mi2).toMap, nr, Seq(Path(Node.XC(ns), m3)))}")
+        (c2v.mapValues((_, _, mi2) => mi2).toMap, nr, Seq(Path(Node.XC(ns), m3)))
 
-  def self[A](a: NValue[A]): Aggregate[A] = AggregateImpl:
+  def branch[A](b: =>Boolean)(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+    AggregateImpl: dself =>
+      c =>
+        val (_, n, m) = (if b then th else el).run(dself)(c.collect { case (dev, Path(Node.IF(bb), mi) :: _) if bb == b => (dev, mi) })
+        (c.collect {case (dev, _ :: mi2) => (dev, mi2) }, n, Seq(Path(Node.IF(`b`), m)))
+  def fold[A](initial: =>A)(op: (A, A) => A)(v: =>NValue[A]): Aggregate[A] = AggregateImpl:
+    d => c =>
+      (c, (c.keySet - d).toList.map(dev => v(dev)).fold(initial)(op), Seq())
+
+  def self[A](a: =>NValue[A]): Aggregate[A] = AggregateImpl:
     d => c =>
       val (c1, a1, m1) = a.run(d)(c)
       (c1, a1(d), m1)
 
+  def sensor[A](sns: () => A): Aggregate[A] =
+    AggregateImpl(d => c => (c, sns(), Seq()))
 
-object Lib:
-  val api: API = Framework
-  import api.{*, given}
+trait Lib:
+  this: API =>
 
   //derived
   def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[NValue[A]] =
@@ -146,3 +168,24 @@ object Lib:
       w <- width
     yield
       gs + gd - d < w
+
+trait Executor:
+  this: Framework =>
+
+  type DomainReset = List[Int]
+  given dc: DomainReset = List()
+
+  def withDomainReset(domainReset: DomainReset)(body: DomainReset ?=> Unit): Unit = body(using domainReset)
+  def evalOnce[A](a: Aggregate[A])(map: Map[Device, Message] = Map()): A = a.run(selfDevice)(map)._2
+  def evalOnce[A](a: Aggregate[A]): A = a.run(selfDevice)(Map())._2
+
+  def repeat[A](a: Aggregate[A])(using DomainReset): LazyList[A] =
+    trace(a).map((c,n,m) => n)
+
+  def trace[A](a: Aggregate[A])(using DomainReset): LazyList[(Context, A, Message)] =
+    var ct = 0
+    LazyList.iterate(a.run(selfDevice)(Map())): cn =>
+      ct = ct + 1
+      a.run(selfDevice)(if summon[DomainReset].contains(ct) then Map() else Map(selfDevice -> cn._3))
+
+
