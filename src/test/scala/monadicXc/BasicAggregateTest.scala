@@ -6,7 +6,7 @@ import org.scalatest.matchers.should.Matchers.*
 
 class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
-  val sut = new Framework with Lib with Executor
+  val sut = new MonadicFramework with Lib with Executor
   import sut.{*, given}
 
   test("pre"):
