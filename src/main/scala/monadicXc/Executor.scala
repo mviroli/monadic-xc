@@ -18,3 +18,27 @@ trait Executor:
     LazyList.iterate(a.run(selfDevice)(Map())): cn =>
       ct = ct + 1
       a.run(selfDevice)(if summon[DomainReset].contains(ct) then Map() else Map(selfDevice -> cn._3))
+
+  class DistributedSystem[A](var aggregate: Aggregate[A], topology: Map[Device, Set[Device]]):
+    var envs: Map[Device, Context] = topology.view.mapValues(_ => Map()).toMap//topology.keySet.map(d => d -> Map(d -> emptyMessage())).toMap.asInstanceOf[Map[Device, Context]]
+    private var _snss: Map[String, Map[Device, Any]] = Map()
+    private var _currentDevice = selfDevice
+
+    def this(topology: Map[Device, Set[Device]]) = this(null, topology)
+
+    def withAggregate(aggr: DistributedSystem[A] ?=> Aggregate[A]): this.type = try this finally this.aggregate = aggr(using this)
+
+    def withSensor[B](name: String, values: Map[Device, B]): this.type = try this finally _snss = _snss + (name -> values)
+
+    def fire(d: Device): A =
+      _currentDevice = d
+      val (ctx, a, msg) = aggregate.run(_currentDevice)(envs(d))
+      envs = topology(d).foldLeft(envs)((e, dd) => e + (dd -> (envs(dd) + (d -> msg))))
+      a
+
+    /*
+    def fires(ds: Device*): Seq[Export[A]] = ds.map(fire(_))
+
+  object DistributedSystem:
+    def platformSensor[A, B](name: String): DistributedSystem[B] ?=> () => A = () => summon[DistributedSystem[B]]._snss(name)(summon[DistributedSystem[B]]._currentDevice).asInstanceOf[A]
+    */

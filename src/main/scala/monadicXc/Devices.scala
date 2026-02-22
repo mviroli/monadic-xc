@@ -6,5 +6,5 @@ trait Devices:
   val selfDevice: Device = 0
   private var currentDevice: Device = 1
 
-  def newCounter: Device =
+  def newDevice(): Device =
     try currentDevice finally currentDevice = currentDevice + 1

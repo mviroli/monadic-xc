@@ -4,13 +4,17 @@ trait Lib:
   this: API =>
 
   //derived
-  def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[NValue[A]] =
+
+  def retsend[A](a: Aggregate[A])(f: NValue[A] => Aggregate[NValue[A]]): Aggregate[NValue[A]] =
+    a.flatMap: nva =>
+      exchange(nva)(nv => f(nv).map(a => (a, a)))
+  
+  def repNV[A](a: Aggregate[A])(f: NValue[A] => Aggregate[A]): Aggregate[NValue[A]] =
     a.flatMap: nva =>
       exchange(nva)(nv => f(nv).map(a => (a,a)))
 
-
   def rep[A](a: A)(f: A => Aggregate[A]): Aggregate[A] =
-    retsend(a)(n => self(n).flatMap(f)).flatMap(self(_))
+    repNV(a)(n => self(n).flatMap(f)).flatMap(self(_))
 
   //examples
   def counter: Aggregate[Int] = rep(0)(_ + 1)
@@ -23,14 +27,14 @@ trait Lib:
     yield if cond then t else e
 
   def hopGradient(src: Aggregate[Boolean]): Aggregate[Int] =
-    retsend(Int.MaxValue): v =>
+    repNV(Int.MaxValue): v =>
       mux(src)(0):
         fold(Int.MaxValue)(_ min _):
           v.nvMap(n => if n == Int.MaxValue then n else n + 1)
     .flatMap(self(_))
 
   def gradient(src: Aggregate[Boolean])(using range: Aggregate[NValue[Double]]): Aggregate[Double] =
-    retsend(Double.PositiveInfinity): distance =>
+    repNV(Double.PositiveInfinity): distance =>
       mux(src)(0.0):
         for
           nvr <- range
@@ -43,7 +47,7 @@ trait Lib:
   def broadcast[A](src: Aggregate[Boolean])(field: Aggregate[A])(using range: Aggregate[NValue[Double]]): Aggregate[(Double, A)] =
     extension [A](dv: (Double, A))
       def min(dv2: (Double, A)): (Double, A) = if dv._1 < dv2._1 then dv else dv2
-    retsend(field.map(Double.PositiveInfinity -> _)): dv =>
+    repNV(field.map(Double.PositiveInfinity -> _)): dv =>
       mux(src)(field.map(0.0 -> _)):
         for
           nvr <- range

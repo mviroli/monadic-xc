@@ -8,6 +8,8 @@ trait AbstractEngine:
       if map.contains(device) then map(device) else a
 
   type Message
+  def emptyMessage(): Message
+
   type Context = Map[Device, Message]
 
   trait Aggregate[A]:

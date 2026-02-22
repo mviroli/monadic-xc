@@ -69,7 +69,6 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     results(4) shouldBe 1
     results(5) shouldBe 2
 
-
   test("pre-Mux"):
     var condition = true
     val ag = for
@@ -91,7 +90,19 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     results(4) shouldBe 5
     results(5) shouldBe 6
 
-
+  test("Ping-pong"):
+    val ag = retsend(0)(nv => nv.nvMap(_ + 1))
+    val (d1, d2, d3) = (newDevice(), newDevice(), newDevice())
+    val ds = DistributedSystem[NValue[Int]](ag, Map(d1 -> Set(d1, d2, d3), d2 -> Set(d1, d2, d3), d3 -> Set(d1, d2, d3)))
+    ds.fire(d1) shouldBe toNValue(1)
+    ds.fire(d2) shouldBe NValue(1, Map(d1 -> 2))
+    ds.fire(d2) shouldBe NValue(1, Map(d1 -> 2, d2 -> 2))
+    ds.fire(d2) shouldBe NValue(1, Map(d1 -> 2, d2 -> 3))
+    ds.fire(d1) shouldBe NValue(1, Map(d1 -> 2, d2 -> 3))
+    ds.fire(d2) shouldBe NValue(1, Map(d1 -> 4, d2 -> 4))
+    ds.fire(d2) shouldBe NValue(1, Map(d1 -> 4, d2 -> 5))
+    ds.fire(d2) shouldBe NValue(1, Map(d1 -> 4, d2 -> 6))
+    ds.fire(d1) shouldBe NValue(1, Map(d1 -> 3, d2 -> 5))
 
 /*
 test("Elaborating on a rep")

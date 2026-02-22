@@ -14,6 +14,7 @@ trait MonadicFramework extends API with AbstractEngine with Devices:
   given toNValue[A]: Conversion[A, NValue[A]] = NValue(_)
 
   override opaque type Message = Seq[Path]
+  override def emptyMessage(): Seq[Path] = Seq()
   case class Path(node: Node, message: Seq[Path])
   enum Node:
     case XC[A](nv: NValue[A])
@@ -34,7 +35,7 @@ trait MonadicFramework extends API with AbstractEngine with Devices:
             val (c2, a2, m2) = f(a1).run(d)(c1)
             (c2, a2, m1 ++ m2)
 
-  def exchange[A](n: =>NValue[A])(f: NValue[A] => Aggregate[(NValue[A], NValue[A])]): Aggregate[NValue[A]] =
+  def exchange[A](n: => NValue[A])(f: NValue[A] => Aggregate[(NValue[A], NValue[A])]): Aggregate[NValue[A]] =
     AggregateImpl: dself =>
       c =>
         val c2v = c.view.mapValues { case Path(Node.XC(ni: NValue[A]), mi) :: mi2 => (ni, mi, mi2) }
