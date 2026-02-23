@@ -16,9 +16,10 @@ trait API:
   given pureConversion[A]: Conversion[A, Aggregate[A]] = ma.pure
 
   def exchange[A](n: =>NValue[A])(f: NValue[A] => Aggregate[(NValue[A], NValue[A])]): Aggregate[NValue[A]]
-  def branch[A](b: =>Boolean)(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A]
+  def branch[A](b: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A]
   def fold[A](initial: =>A)(op: (A, A) => A)(v: =>NValue[A]): Aggregate[A]
   def self[A](a: =>NValue[A]): Aggregate[A]
   def sensor[A](a: () => A): Aggregate[A]
+  def call[A](f: () => Aggregate[A]): Aggregate[A]
 
 

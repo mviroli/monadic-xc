@@ -56,9 +56,16 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
     results(2) shouldBe false
     results(3) shouldBe false
 
+  test("Pre-Branch"):
+    val ag = branch(true)(counter)(0)
+    val results = repeat(ag).take(2)
+    results(0) shouldBe 1
+    results(1) shouldBe 2
+
+
   test("Branch"):
     var condition = true
-    val ag = sensor(() => condition).flatMap(b => branch(b)(counter)(0))
+    val ag = branch(sensor(() => condition))(counter)(0)
     val results = repeat(ag).take(6)
     results(0) shouldBe 1
     results(1) shouldBe 2
@@ -111,7 +118,7 @@ class BasicAggregateTest extends org.scalatest.funsuite.AnyFunSuite:
 
   test("Branching ping-pong with a sensor"):
     var cond = false
-    val agf:Aggregate[NValue[Int]] = sensor(() => cond).flatMap(b => branch(b)(toNValue(0))(retsend(0)(nv => nv.nvMap(_ + 1))))
+    val agf:Aggregate[NValue[Int]] = branch(sensor(() => cond))(toNValue(0))(retsend(0)(nv => nv.nvMap(_ + 1)))
     val (d1, d2) = (newDevice(), newDevice())
     val ds = Platform()
       .withNeighbourhood(d1 -> Set(d1, d2))

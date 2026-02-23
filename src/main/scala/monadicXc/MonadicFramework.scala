@@ -18,7 +18,7 @@ trait MonadicFramework extends API with AbstractEngine with Devices:
   case class Path(node: Node, message: Seq[Path])
   enum Node:
     case XC[A](nv: NValue[A])
-    case IF(b: Boolean)
+    case CALL[A](f: Any)
 
   case class AggregateImpl[A](run: Device => Context => (Context, A, Message)) extends Aggregate[A]
 
@@ -44,11 +44,20 @@ trait MonadicFramework extends API with AbstractEngine with Devices:
           //println(s"$c ${(c2v.mapValues((_, _, mi2) => mi2).toMap, nr, Seq(Path(Node.XC(ns), m3)))}")
         (c2v.mapValues((_, _, mi2) => mi2).toMap, nr, Seq(Path(Node.XC(ns), m3)))
 
-  def branch[A](b: =>Boolean)(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+  def branch[A](condition: Aggregate[Boolean])(th: Aggregate[A])(el: Aggregate[A]): Aggregate[A] =
+    lazy val f1 = () => th
+    lazy val f2 = () => el
+    (for
+      b <- condition
+    yield if b then f1 else f2).flatMap(call)
+
+  def call[A](f: () => Aggregate[A]): Aggregate[A] =
     AggregateImpl: dself =>
       c =>
-        val (_, n, m) = (if b then th else el).run(dself)(c.collect { case (dev, Path(Node.IF(bb), mi) :: _) if bb == b => (dev, mi) })
-        (c.collect {case (dev, _ :: mi2) => (dev, mi2) }, n, Seq(Path(Node.IF(`b`), m)))
+        val (_, n, m) = f().run(dself)(c.collect { case (dev, Path(Node.CALL(ff), mi) :: _) if ff == f => (dev, mi) })
+        (c.collect { case (dev, _ :: mi2) => (dev, mi2) }, n, Seq(Path(Node.CALL(f), m)))
+
+
   def fold[A](initial: =>A)(op: (A, A) => A)(v: =>NValue[A]): Aggregate[A] = AggregateImpl:
     d => c =>
       (c, (c.keySet - d).toList.map(dev => v(dev)).fold(initial)(op), Seq())
